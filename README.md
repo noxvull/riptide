@@ -1,4 +1,4 @@
-# Typhoon
+# Riptide
 
 A terminal UI music player for Tidal, built with Rust.
 
@@ -33,16 +33,16 @@ A terminal UI music player for Tidal, built with Rust.
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/typhoon
-cd typhoon
+git clone https://github.com/yourname/riptide
+cd riptide
 cargo install --path .
 ```
 
-The `typhoon` binary will be placed in `~/.cargo/bin/`. Make sure that directory is on your `PATH`.
+The `riptide` binary will be placed in `~/.cargo/bin/`. Make sure that directory is on your `PATH`.
 
 ## First run & authentication
 
-Typhoon uses Tidal's OAuth device-authorization flow. On first launch it will print a URL and a short code:
+riptide uses Tidal's OAuth device-authorization flow. On first launch it will print a URL and a short code:
 
 ```
 ╔══════════════════════════════════════════╗
@@ -57,7 +57,7 @@ Typhoon uses Tidal's OAuth device-authorization flow. On first launch it will pr
 Waiting for authorization…
 ```
 
-Open the URL in a browser, log in with your Tidal account, and enter the code. Typhoon will save your tokens to the config file and launch immediately. You will not need to authenticate again unless your refresh token expires.
+Open the URL in a browser, log in with your Tidal account, and enter the code. riptide will save your tokens to the config file and launch immediately. You will not need to authenticate again unless your refresh token expires.
 
 ## Configuration
 
@@ -65,7 +65,7 @@ The config file lives at:
 
 | Platform | Path                                                |
 |----------|-----------------------------------------------------|
-| Linux    | `~/.config/typhoon/config.json`                     |
+| Linux    | `~/.config/riptide/config.json`                     |
 
 It is created automatically on first run. Example:
 
@@ -84,7 +84,7 @@ It is created automatically on first run. Example:
 
 ### Using your own OAuth credentials
 
-Typhoon ships with built-in fallback credentials (provided by the open-source [tidalapi](https://github.com/tamland/python-tidal) project). If those credentials are ever revoked you can substitute your own:
+riptide ships with built-in fallback credentials (provided by the open-source [tidalapi](https://github.com/tamland/python-tidal) project). If those credentials are ever revoked you can substitute your own:
 
 1. Register a device-authorization client at [developer.tidal.com](https://developer.tidal.com)
 2. Add your credentials to `config.json`:
@@ -164,7 +164,7 @@ Press `→` / `l` from any main tab to focus the queue.
 
 ## Kitty terminal graphics
 
-If you run Typhoon inside [Kitty](https://sw.kovidgoyal.net/kitty/), album art and artist pictures are rendered at full pixel resolution using the Kitty graphics protocol. In any other terminal, a half-block (`▀`) approximation is used instead.
+If you run riptide inside [Kitty](https://sw.kovidgoyal.net/kitty/), album art and artist pictures are rendered at full pixel resolution using the Kitty graphics protocol. In any other terminal, a half-block (`▀`) approximation is used instead.
 
 ## License
 
