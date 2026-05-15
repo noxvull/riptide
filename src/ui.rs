@@ -123,10 +123,12 @@ fn render_sidebar_art(f: &mut Frame, app: &App, area: Rect) {
                     for x in area.x..area.x + area.width {
                         if let Some(cell) = buf.cell_mut((x, y)) {
                             cell.reset();
+                            cell.skip = true;
                         }
                     }
                 }
                 if let Some(cell) = buf.cell_mut((area.x, area.y)) {
+                    cell.skip = false;
                     cell.set_symbol(seq);
                 }
             }
@@ -528,10 +530,14 @@ fn render_artist_art(f: &mut Frame, app: &App, detail: &crate::app::ArtistDetail
                 let buf = f.buffer_mut();
                 for y in inner.y..inner.y + inner.height {
                     for x in inner.x..inner.x + inner.width {
-                        if let Some(cell) = buf.cell_mut((x, y)) { cell.reset(); }
+                        if let Some(cell) = buf.cell_mut((x, y)) {
+                            cell.reset();
+                            cell.skip = true;
+                        }
                     }
                 }
                 if let Some(cell) = buf.cell_mut((inner.x, inner.y)) {
+                    cell.skip = false;
                     cell.set_symbol(seq);
                 }
             }
@@ -965,10 +971,12 @@ fn render_album_detail(f: &mut Frame, app: &App, detail: &crate::app::AlbumDetai
                         for x in art_inner.x..art_inner.x + art_inner.width {
                             if let Some(cell) = buf.cell_mut((x, y)) {
                                 cell.reset();
+                                cell.skip = true;
                             }
                         }
                     }
                     if let Some(cell) = buf.cell_mut((art_inner.x, art_inner.y)) {
+                        cell.skip = false;
                         cell.set_symbol(seq);
                     }
                 }

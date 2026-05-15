@@ -49,10 +49,17 @@ pub fn run_app(
             break;
         }
 
-        // Poll for key events with a short timeout to keep animations smooth
+        // Poll for events with a short timeout to keep animations smooth.
+        // Drain the full queue so mouse-move events don't cause unbounded spin.
         if event::poll(Duration::from_millis(16))? {
-            if let Event::Key(key) = event::read()? {
-                handle_key(app, key);
+            loop {
+                match event::read()? {
+                    Event::Key(key) => handle_key(app, key),
+                    _ => {}
+                }
+                if !event::poll(Duration::from_millis(0))? {
+                    break;
+                }
             }
         }
     }
