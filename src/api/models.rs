@@ -26,10 +26,13 @@ pub struct Artist {
     pub id: u64,
     pub name: String,
     pub picture: Option<String>,
+    #[serde(default, skip_deserializing)]
+    pub added_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct FavoriteArtistEntry {
+    pub created: Option<String>,
     pub item: Artist,
 }
 
@@ -55,6 +58,8 @@ pub struct Album {
     pub audio_quality: Option<String>,
     #[serde(rename = "mediaMetadata", default)]
     pub media_metadata: Option<MediaMetadata>,
+    #[serde(default, skip_deserializing)]
+    pub added_at: Option<String>,
 }
 
 impl Album {
@@ -76,6 +81,7 @@ impl Album {
 
 #[derive(Debug, Deserialize)]
 pub struct FavoriteAlbumEntry {
+    pub created: Option<String>,
     pub item: Album,
 }
 
@@ -93,6 +99,8 @@ pub struct Track {
     pub album: Album,
     #[serde(rename = "audioQuality")]
     pub audio_quality: Option<String>,
+    #[serde(default, skip_deserializing)]
+    pub added_at: Option<String>,
 }
 
 impl Track {
@@ -124,6 +132,7 @@ impl Track {
 
 #[derive(Debug, Deserialize)]
 pub struct FavoriteTrackEntry {
+    pub created: Option<String>,
     pub item: Track,
 }
 
@@ -135,10 +144,15 @@ pub struct Playlist {
     pub title: String,
     #[serde(rename = "numberOfTracks")]
     pub number_of_tracks: u32,
+    #[serde(rename = "lastUpdated", default)]
+    pub last_updated: Option<String>,
+    #[serde(default, skip_deserializing)]
+    pub added_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct FavoritePlaylistEntry {
+    pub created: Option<String>,
     pub item: Playlist,
 }
 

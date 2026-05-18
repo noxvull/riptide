@@ -235,6 +235,35 @@ impl SearchState {
     }
 }
 
+// ── Sort palette ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortField {
+    #[default]
+    Alphabetical,
+    DateAdded,
+    DateUpdated,
+}
+
+pub struct SortPalette {
+    pub active: bool,
+    pub selected: usize,
+}
+
+impl Default for SortPalette {
+    fn default() -> Self {
+        Self { active: false, selected: 0 }
+    }
+}
+
+impl SortPalette {
+    pub const OPTIONS: &'static [(&'static str, SortField)] = &[
+        ("Alphabetical",  SortField::Alphabetical),
+        ("Created Date",  SortField::DateAdded),
+        ("Updated Date",  SortField::DateUpdated),
+    ];
+}
+
 // ── Command palette ───────────────────────────────────────────────────────────
 
 pub struct CommandState {
@@ -350,6 +379,11 @@ pub struct App {
     pub favorites: StatefulList<Track>,
     pub search: SearchState,
     pub command: CommandState,
+    pub sort_palette: SortPalette,
+    pub favorites_sort: Option<SortField>,
+    pub artists_sort: Option<SortField>,
+    pub fav_albums_sort: Option<SortField>,
+    pub playlists_sort: Option<SortField>,
     pub now_playing: NowPlaying,
 
     pub queue_focused: bool,
@@ -380,6 +414,11 @@ impl App {
             favorites: StatefulList::default(),
             search: SearchState::default(),
             command: CommandState::default(),
+            sort_palette: SortPalette::default(),
+            favorites_sort: None,
+            artists_sort: None,
+            fav_albums_sort: None,
+            playlists_sort: None,
             now_playing: NowPlaying::default(),
             queue_focused: false,
             queue_cursor: 0,
@@ -826,6 +865,70 @@ impl App {
             self.remove_playlist(playlist);
         } else {
             self.save_playlist(playlist);
+        }
+    }
+
+    // ── Sort ─────────────────────────────────────────────────────────────────
+
+    pub fn open_sort_palette(&mut self) {
+        self.sort_palette.active = true;
+        self.sort_palette.selected = 0;
+    }
+
+    pub fn apply_sort(&mut self, field: SortField) {
+        self.sort_palette.active = false;
+        match self.current_tab {
+            Tab::Favorites => {
+                self.favorites_sort = Some(field);
+                match field {
+                    SortField::Alphabetical => self.favorites.items.sort_by(|a, b| {
+                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                    }),
+                    SortField::DateAdded | SortField::DateUpdated => {
+                        self.favorites.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+                    }
+                }
+            }
+            Tab::Artists => {
+                self.artists_sort = Some(field);
+                match field {
+                    SortField::Alphabetical => self.artists.items.sort_by(|a, b| {
+                        a.name.to_lowercase().cmp(&b.name.to_lowercase())
+                    }),
+                    SortField::DateAdded | SortField::DateUpdated => {
+                        self.artists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+                    }
+                }
+            }
+            Tab::Albums => {
+                self.fav_albums_sort = Some(field);
+                match field {
+                    SortField::Alphabetical => self.fav_albums.items.sort_by(|a, b| {
+                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                    }),
+                    SortField::DateAdded => {
+                        self.fav_albums.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+                    }
+                    SortField::DateUpdated => {
+                        self.fav_albums.items.sort_by(|a, b| b.release_date.cmp(&a.release_date));
+                    }
+                }
+            }
+            Tab::Playlists => {
+                self.playlists_sort = Some(field);
+                match field {
+                    SortField::Alphabetical => self.playlists.items.sort_by(|a, b| {
+                        a.title.to_lowercase().cmp(&b.title.to_lowercase())
+                    }),
+                    SortField::DateAdded => {
+                        self.playlists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+                    }
+                    SortField::DateUpdated => {
+                        self.playlists.items.sort_by(|a, b| b.last_updated.cmp(&a.last_updated));
+                    }
+                }
+            }
+            Tab::Search => {}
         }
     }
 

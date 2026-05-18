@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::api::{ApiRequest, ApiResponse};
-use crate::app::{App, ArtistDetailFocus, SearchPane, Tab, View};
+use crate::app::{App, ArtistDetailFocus, SearchPane, SortPalette, Tab, View};
 use crate::mpris::MprisCmd;
 use crate::player::{PlayerCmd, PlayerEvent};
 
@@ -91,6 +91,11 @@ fn handle_key(app: &mut App, key: KeyEvent) {
 
     if app.command.active {
         handle_command_input(app, key);
+        return;
+    }
+
+    if app.sort_palette.active {
+        handle_sort_palette_input(app, key);
         return;
     }
 
@@ -200,6 +205,30 @@ fn execute_command(app: &mut App, cmd: &str) {
         "search" => {
             cleanup(app);
             app.set_tab(Tab::Search);
+        }
+        _ => {}
+    }
+}
+
+fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
+    let count = SortPalette::OPTIONS.len();
+    match key.code {
+        KeyCode::Esc => {
+            app.sort_palette.active = false;
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.sort_palette.selected > 0 {
+                app.sort_palette.selected -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if app.sort_palette.selected + 1 < count {
+                app.sort_palette.selected += 1;
+            }
+        }
+        KeyCode::Enter => {
+            let field = SortPalette::OPTIONS[app.sort_palette.selected].1;
+            app.apply_sort(field);
         }
         _ => {}
     }
@@ -484,6 +513,14 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
             Tab::Search if app.search.pane == SearchPane::Playlists => {
                 if let Some(playlist) = app.search.playlists.get(app.search.playlist_sel).cloned() {
                     app.toggle_save_playlist(&playlist);
+                }
+            }
+            _ => {}
+        },
+        KeyCode::Char('s') => match app.current_tab {
+            Tab::Favorites | Tab::Artists | Tab::Albums | Tab::Playlists => {
+                if app.view_stack.is_empty() {
+                    app.open_sort_palette();
                 }
             }
             _ => {}

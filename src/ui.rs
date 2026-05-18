@@ -58,6 +58,10 @@ pub fn draw(f: &mut Frame, app: &App) {
         render_command_overlay(f, app, area);
     }
 
+    if app.sort_palette.active {
+        render_sort_overlay(f, app, area);
+    }
+
     render_toast(f, app, area);
 }
 
@@ -322,6 +326,51 @@ fn render_command_overlay(f: &mut Frame, app: &App, area: Rect) {
                 Rect::new(inner.x, row_y, inner.width, 1),
             );
         }
+    }
+}
+
+// ── Sort overlay ──────────────────────────────────────────────────────────────
+
+fn render_sort_overlay(f: &mut Frame, app: &App, area: Rect) {
+    use crate::app::SortPalette;
+
+    let options = SortPalette::OPTIONS;
+    let box_w: u16 = 26;
+    let box_h: u16 = 2 + options.len() as u16; // border top/bottom + one row per option
+
+    let x = area.x + area.width.saturating_sub(box_w) / 2;
+    let y = area.y + area.height.saturating_sub(box_h) / 2;
+    let overlay = Rect::new(
+        x.min(area.right().saturating_sub(box_w)),
+        y.min(area.bottom().saturating_sub(box_h)),
+        box_w.min(area.width),
+        box_h.min(area.height),
+    );
+
+    f.render_widget(Clear, overlay);
+    let block = Block::default()
+        .title(Span::styled(" sort by ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ACCENT));
+    let inner = block.inner(overlay);
+    f.render_widget(block, overlay);
+
+    for (i, (label, _)) in options.iter().enumerate() {
+        let row_y = inner.y + i as u16;
+        if row_y >= inner.y + inner.height {
+            break;
+        }
+        let selected = i == app.sort_palette.selected;
+        let style = if selected {
+            Style::default().bg(SELECT_BG).fg(Color::White).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(DIM)
+        };
+        let prefix = if selected { " ► " } else { "   " };
+        f.render_widget(
+            Paragraph::new(format!("{prefix}{label}")).style(style),
+            Rect::new(inner.x, row_y, inner.width, 1),
+        );
     }
 }
 
@@ -1434,6 +1483,8 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
         &[("↑↓", "navigate"), ("↵", "play from"), ("f", "favorite"), ("d", "remove"), ("←/esc", "back"), ("spc", "pause")]
     } else if app.command.active {
         &[("↑↓", "select"), ("tab", "complete"), ("↵", "go"), ("esc", "cancel")]
+    } else if app.sort_palette.active {
+        &[("↑↓", "select"), ("↵", "apply"), ("esc", "cancel")]
     } else if app.search.active {
         &[("↵", "search"), ("esc", "cancel")]
     } else if bio_focused {
@@ -1464,7 +1515,7 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
         ]
     } else {
         &[
-            ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("→", "focus queue"),
+            ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("s", "sort"), ("→", "focus queue"),
             ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
         ]
     };

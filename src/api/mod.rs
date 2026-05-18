@@ -115,7 +115,11 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
     match req {
         ApiRequest::LoadArtists { offset } => match client.get_favorite_artists(offset, 50).await {
             Ok(page) => {
-                let artists = page.items.into_iter().map(|e| e.item).collect();
+                let artists = page.items.into_iter().map(|e| {
+                    let mut item = e.item;
+                    item.added_at = e.created;
+                    item
+                }).collect();
                 ApiResponse::Artists(artists, page.total)
             }
             Err(e) => ApiResponse::Error(e.to_string()),
@@ -130,7 +134,9 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
                         if let Ok(fav_page) = client.get_favorite_playlists(100).await {
                             for entry in fav_page.items {
                                 if !page.items.iter().any(|p| p.uuid == entry.item.uuid) {
-                                    page.items.push(entry.item);
+                                    let mut pl = entry.item;
+                                    pl.added_at = entry.created;
+                                    page.items.push(pl);
                                 }
                             }
                         }
@@ -144,7 +150,11 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
 
         ApiRequest::LoadFavAlbums { offset } => match client.get_favorite_albums(offset, 50).await {
             Ok(page) => {
-                let albums = page.items.into_iter().map(|e| e.item).collect();
+                let albums = page.items.into_iter().map(|e| {
+                    let mut item = e.item;
+                    item.added_at = e.created;
+                    item
+                }).collect();
                 ApiResponse::FavAlbums(albums, page.total)
             }
             Err(e) => ApiResponse::Error(e.to_string()),
@@ -152,7 +162,11 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
 
         ApiRequest::LoadFavorites { offset } => match client.get_favorite_tracks(offset, 50).await {
             Ok(page) => {
-                let tracks = page.items.into_iter().map(|e| e.item).collect();
+                let tracks = page.items.into_iter().map(|e| {
+                    let mut item = e.item;
+                    item.added_at = e.created;
+                    item
+                }).collect();
                 ApiResponse::Favorites(tracks, page.total)
             }
             Err(e) => ApiResponse::Error(e.to_string()),
