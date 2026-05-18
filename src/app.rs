@@ -241,8 +241,7 @@ impl SearchState {
 pub enum SortField {
     #[default]
     Alphabetical,
-    DateAdded,
-    DateUpdated,
+    LastAdded,
 }
 
 pub struct SortPalette {
@@ -258,9 +257,8 @@ impl Default for SortPalette {
 
 impl SortPalette {
     pub const OPTIONS: &'static [(&'static str, SortField)] = &[
-        ("Alphabetical",  SortField::Alphabetical),
-        ("Created Date",  SortField::DateAdded),
-        ("Updated Date",  SortField::DateUpdated),
+        ("Alphabetical", SortField::Alphabetical),
+        ("Last Added",   SortField::LastAdded),
     ];
 }
 
@@ -484,7 +482,9 @@ impl App {
         match resp {
             ApiResponse::Artists(items, total) => {
                 self.artists.append(items, total);
-                self.artists.items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                if self.artists_sort.is_none() {
+                    self.artists.items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                }
             }
 
             ApiResponse::FavAlbums(items, total) => {
@@ -494,6 +494,9 @@ impl App {
                     .filter(|a| !existing_ids.contains(&a.id))
                     .collect();
                 self.fav_albums.append(unique, total);
+                if self.fav_albums_sort.is_none() {
+                    self.fav_albums.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+                }
                 self.load_fav_albums();
             }
 
@@ -517,6 +520,9 @@ impl App {
 
             ApiResponse::Playlists(items, total) => {
                 self.playlists.append(items, total);
+                if self.playlists_sort.is_none() {
+                    self.playlists.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+                }
             }
 
             ApiResponse::Favorites(items, total) => {
@@ -528,6 +534,9 @@ impl App {
                     .filter(|t| !existing_ids.contains(&t.id))
                     .collect();
                 self.favorites.append(unique, total);
+                if self.favorites_sort.is_none() {
+                    self.favorites.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+                }
                 // On first load, preview the first track: show its art in the sidebar
                 // without starting playback.
                 if was_empty && self.now_playing.track.is_none() {
@@ -884,7 +893,7 @@ impl App {
                     SortField::Alphabetical => self.favorites.items.sort_by(|a, b| {
                         a.title.to_lowercase().cmp(&b.title.to_lowercase())
                     }),
-                    SortField::DateAdded | SortField::DateUpdated => {
+                    SortField::LastAdded => {
                         self.favorites.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
                 }
@@ -895,7 +904,7 @@ impl App {
                     SortField::Alphabetical => self.artists.items.sort_by(|a, b| {
                         a.name.to_lowercase().cmp(&b.name.to_lowercase())
                     }),
-                    SortField::DateAdded | SortField::DateUpdated => {
+                    SortField::LastAdded => {
                         self.artists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
                 }
@@ -906,11 +915,8 @@ impl App {
                     SortField::Alphabetical => self.fav_albums.items.sort_by(|a, b| {
                         a.title.to_lowercase().cmp(&b.title.to_lowercase())
                     }),
-                    SortField::DateAdded => {
+                    SortField::LastAdded => {
                         self.fav_albums.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
-                    }
-                    SortField::DateUpdated => {
-                        self.fav_albums.items.sort_by(|a, b| b.release_date.cmp(&a.release_date));
                     }
                 }
             }
@@ -920,11 +926,8 @@ impl App {
                     SortField::Alphabetical => self.playlists.items.sort_by(|a, b| {
                         a.title.to_lowercase().cmp(&b.title.to_lowercase())
                     }),
-                    SortField::DateAdded => {
+                    SortField::LastAdded => {
                         self.playlists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
-                    }
-                    SortField::DateUpdated => {
-                        self.playlists.items.sort_by(|a, b| b.last_updated.cmp(&a.last_updated));
                     }
                 }
             }

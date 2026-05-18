@@ -144,8 +144,6 @@ pub struct Playlist {
     pub title: String,
     #[serde(rename = "numberOfTracks")]
     pub number_of_tracks: u32,
-    #[serde(rename = "lastUpdated", default)]
-    pub last_updated: Option<String>,
     #[serde(default, skip_deserializing)]
     pub added_at: Option<String>,
 }
