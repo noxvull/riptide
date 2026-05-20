@@ -129,6 +129,10 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
             match client.get_user_playlists(offset, 100).await {
                 Err(e) => ApiResponse::Error(e.to_string()),
                 Ok(mut page) => {
+                    // Populate added_at from the creation date on each owned playlist.
+                    for pl in &mut page.items {
+                        pl.added_at = pl.created.clone();
+                    }
                     // On the first page, also pull in followed playlists (saved by others).
                     if offset == 0 {
                         if let Ok(fav_page) = client.get_favorite_playlists(100).await {
