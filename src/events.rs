@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::api::{ApiRequest, ApiResponse};
-use crate::app::{App, ArtistDetailFocus, SearchPane, Tab, View};
+use crate::app::{App, ArtistDetailFocus, SearchPane, SortPalette, Tab, View};
 use crate::mpris::MprisCmd;
 use crate::player::{PlayerCmd, PlayerEvent};
 
@@ -211,8 +211,7 @@ fn execute_command(app: &mut App, cmd: &str) {
 }
 
 fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
-    let options = app.current_tab.sorting_options();
-    let count = options.len();
+    let count = SortPalette::OPTIONS.len();
     match key.code {
         KeyCode::Esc => {
             app.sort_palette.active = false;
@@ -228,10 +227,8 @@ fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => {
-            let options = app.current_tab.sorting_options();
-            if let Some((_, field)) = options.get(app.sort_palette.selected) {
-                app.apply_sort(*field);
-            }
+            let field = SortPalette::OPTIONS[app.sort_palette.selected].1;
+            app.apply_sort(field);
         }
         _ => {}
     }

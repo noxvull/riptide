@@ -32,21 +32,6 @@ impl Tab {
         }
     }
 
-    pub fn sorting_options(&self) -> &'static [(&'static str, SortField)]{
-        match self {
-            Tab::Favorites => &[
-                ("Alphabetical", SortField::Alphabetical),
-                ("Last Added",   SortField::LastAdded),
-                ("By Artist",    SortField::ByArtist),
-            ],
-            Tab::Artists | Tab::Albums | Tab::Playlists => &[
-                ("Alphabetical", SortField::Alphabetical),
-                ("Last Added",   SortField::LastAdded),
-            ],
-            Tab::Search => &[],
-        }
-    }
-
 }
 
 // ── StatefulList ──────────────────────────────────────────────────────────────
@@ -257,7 +242,6 @@ pub enum SortField {
     #[default]
     Alphabetical,
     LastAdded,
-    ByArtist,
 }
 
 pub struct SortPalette {
@@ -269,6 +253,13 @@ impl Default for SortPalette {
     fn default() -> Self {
         Self { active: false, selected: 0 }
     }
+}
+
+impl SortPalette {
+    pub const OPTIONS: &'static [(&'static str, SortField)] = &[
+        ("Alphabetical", SortField::Alphabetical),
+        ("Last Added",   SortField::LastAdded),
+    ];
 }
 
 // ── Command palette ───────────────────────────────────────────────────────────
@@ -905,9 +896,6 @@ impl App {
                     SortField::LastAdded => {
                         self.favorites.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
-                    SortField::ByArtist => {
-                        self.favorites.items.sort_by(|a, b| a.artist_name().to_lowercase().cmp(&b.artist_name().to_lowercase()));
-                    }
                 }
             }
             Tab::Artists => {
@@ -919,7 +907,6 @@ impl App {
                     SortField::LastAdded => {
                         self.artists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
-                    _ => {}
                 }
             }
             Tab::Albums => {
@@ -931,7 +918,6 @@ impl App {
                     SortField::LastAdded => {
                         self.fav_albums.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
-                    _ => {}
                 }
             }
             Tab::Playlists => {
@@ -943,7 +929,6 @@ impl App {
                     SortField::LastAdded => {
                         self.playlists.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
-                    _ => {}
                 }
             }
             Tab::Search => {}
