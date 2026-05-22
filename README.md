@@ -51,6 +51,32 @@ cargo install --path .
 
 The `riptide` binary will be placed in `~/.cargo/bin/`. Make sure that directory is on your `PATH`.
 
+### Nix
+
+Add riptide as your `flake.nix` input:
+
+```nix
+{
+  inputs.riptide.url = "github:fezzik-the-giant/riptide";
+}
+```
+
+Then add it to your home-manager:
+
+```nix
+home.packages =  (with pkgs; [
+    inputs.riptide.packages.${system}.default
+ ];
+```
+
+A development shell is also available:
+
+```sh
+git clone github:fezzik-the-giant/riptide
+cd riptide/
+nix develop
+```
+
 ## First run & authentication
 
 Riptide uses Tidal's OAuth device-authorization flow. On first launch it will print a URL and a short code:
