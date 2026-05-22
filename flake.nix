@@ -25,7 +25,7 @@
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs { inherit system overlays; };
 
-        rustToolchain = pkgs.rust-bin.stable."1.90.0".default;
+        rustToolchain = pkgs.rust-bin.stable.latest.default;
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
