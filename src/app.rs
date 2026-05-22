@@ -260,22 +260,30 @@ pub enum SortField {
     ByArtist,
 }
 
-#[derive(Default)]
 pub struct SortPalette {
     pub active: bool,
     pub selected: usize,
 }
 
+impl Default for SortPalette {
+    fn default() -> Self {
+        Self { active: false, selected: 0 }
+    }
+}
 
 // ── Command palette ───────────────────────────────────────────────────────────
 
-#[derive(Default)]
 pub struct CommandState {
     pub active: bool,
     pub input: String,
     pub selected: usize,
 }
 
+impl Default for CommandState {
+    fn default() -> Self {
+        Self { active: false, input: String::new(), selected: 0 }
+    }
+}
 
 impl CommandState {
     pub const COMMANDS: &'static [&'static str] =
@@ -484,7 +492,7 @@ impl App {
             ApiResponse::Artists(items, total) => {
                 self.artists.append(items, total);
                 if self.artists_sort.is_none() {
-                    self.artists.items.sort_by_key(|a| a.name.to_lowercase());
+                    self.artists.items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
                 }
             }
 
@@ -496,7 +504,7 @@ impl App {
                     .collect();
                 self.fav_albums.append(unique, total);
                 if self.fav_albums_sort.is_none() {
-                    self.fav_albums.items.sort_by_key(|a| a.title.to_lowercase());
+                    self.fav_albums.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
                 }
                 self.load_fav_albums();
             }
@@ -522,7 +530,7 @@ impl App {
             ApiResponse::Playlists(items, total) => {
                 self.playlists.append(items, total);
                 if self.playlists_sort.is_none() {
-                    self.playlists.items.sort_by_key(|a| a.title.to_lowercase());
+                    self.playlists.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
                 }
             }
 
@@ -536,32 +544,34 @@ impl App {
                     .collect();
                 self.favorites.append(unique, total);
                 if self.favorites_sort.is_none() {
-                    self.favorites.items.sort_by_key(|a| a.title.to_lowercase());
+                    self.favorites.items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
                 }
                 // On first load, preview the first track: show its art in the sidebar
                 // without starting playback.
-                if was_empty && self.now_playing.track.is_none()
-                    && let Some(first) = self.favorites.items.first().cloned() {
+                if was_empty && self.now_playing.track.is_none() {
+                    if let Some(first) = self.favorites.items.first().cloned() {
                         self.now_playing.track = Some(first);
                         self.fetch_now_playing_metadata();
                     }
+                }
                 // Eagerly fetch remaining pages so the full list is available without scrolling.
                 self.load_favorites();
             }
 
             ApiResponse::ArtistTopTracks { artist_id, tracks } => {
-                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut()
-                    && detail.artist.id == artist_id {
+                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.artist.id == artist_id {
                         let n = tracks.len() as u32;
                         let total = detail.tracks.total.max(n);
                         detail.tracks.append(tracks, total);
                         detail.tracks.exhausted = true;
                     }
+                }
             }
 
             ApiResponse::ArtistAlbums { artist_id, albums } => {
-                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut()
-                    && detail.artist.id == artist_id {
+                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.artist.id == artist_id {
                         let n = albums.len() as u32;
                         let total = detail.albums.total.max(n);
                         detail.albums.append(albums, total);
@@ -570,22 +580,25 @@ impl App {
                         });
                         detail.albums.exhausted = true;
                     }
+                }
             }
 
             ApiResponse::AlbumLoaded { album } => {
-                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut()
-                    && detail.album.id == album.id {
+                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.album.id == album.id {
                         detail.album = album;
                     }
+                }
             }
 
             ApiResponse::AlbumTracks { album_id, tracks } => {
-                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut()
-                    && detail.album.id == album_id {
+                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.album.id == album_id {
                         let n = tracks.len() as u32;
                         detail.tracks.append(tracks, n);
                         detail.tracks.exhausted = true;
                     }
+                }
             }
 
             ApiResponse::AlbumArt { album_id, image_data } => {
@@ -597,38 +610,42 @@ impl App {
                     *self.now_playing.art_cache.borrow_mut() = None;
                     *self.now_playing.art_placed.borrow_mut() = None;
                 }
-                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut()
-                    && detail.album.id == album_id {
+                if let Some(View::AlbumDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.album.id == album_id {
                         detail.art_bytes = Some(image_data);
                         detail.art_loading = false;
                         *detail.art_cache.borrow_mut() = None;
                         *detail.art_placed.borrow_mut() = None;
                     }
+                }
             }
 
             ApiResponse::ArtistArt { artist_id, image_data } => {
-                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut()
-                    && detail.artist.id == artist_id {
+                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.artist.id == artist_id {
                         detail.art_bytes = Some(image_data);
                         detail.art_loading = false;
                         *detail.art_cache.borrow_mut() = None;
                         *detail.art_placed.borrow_mut() = None;
                     }
+                }
             }
 
             ApiResponse::ArtistBio { artist_id, text } => {
-                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut()
-                    && detail.artist.id == artist_id {
+                if let Some(View::ArtistDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.artist.id == artist_id {
                         detail.bio = if text.is_empty() { None } else { Some(text) };
                         detail.bio_loading = false;
                     }
+                }
             }
 
             ApiResponse::PlaylistTracks { uuid, tracks, total } => {
-                if let Some(View::PlaylistDetail(detail)) = self.view_stack.last_mut()
-                    && detail.playlist.uuid == uuid {
+                if let Some(View::PlaylistDetail(detail)) = self.view_stack.last_mut() {
+                    if detail.playlist.uuid == uuid {
                         detail.tracks.append(tracks, total);
                     }
+                }
             }
 
             ApiResponse::SearchResults(results) => {
@@ -889,7 +906,7 @@ impl App {
                         self.favorites.items.sort_by(|a, b| b.added_at.cmp(&a.added_at));
                     }
                     SortField::ByArtist => {
-                        self.favorites.items.sort_by_key(|a| a.artist_name().to_lowercase());
+                        self.favorites.items.sort_by(|a, b| a.artist_name().to_lowercase().cmp(&b.artist_name().to_lowercase()));
                     }
                 }
             }
@@ -1266,10 +1283,11 @@ impl App {
     pub fn tick(&mut self) {
         self.tick = self.tick.wrapping_add(1);
         // ~5 s at 16 ms/tick = 312 ticks
-        if let Some((_, _, set_at)) = self.status
-            && self.tick.wrapping_sub(set_at) > 312 {
+        if let Some((_, _, set_at)) = self.status {
+            if self.tick.wrapping_sub(set_at) > 312 {
                 self.status = None;
             }
+        }
     }
 
     fn set_status(&mut self, msg: String, level: StatusLevel) {
