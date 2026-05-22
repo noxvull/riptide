@@ -72,9 +72,15 @@ home.packages =  (with pkgs; [
 A development shell is also available:
 
 ```sh
-git clone github:fezzik-the-giant/riptide
+git clone https://github.com/fezzik-the-giant/riptide
 cd riptide/
 nix develop
+```
+
+You can also run riptide directly:
+
+```sh
+nix run github:fezzik-the-giant/riptide
 ```
 
 ## First run & authentication
