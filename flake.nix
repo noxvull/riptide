@@ -1,4 +1,3 @@
-# Thank you concord, for an inspiration on how to build a flake - Noxvull
 {
   description = "A terminal UI music player for Tidal, built with Rust";
 
