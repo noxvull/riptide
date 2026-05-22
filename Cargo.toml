@@ -1,5 +1,6 @@
 [package]
 name = "riptide"
+description = "A terminal UI music player for Tidal, built with Rust"
 version = "0.3.9"
 edition = "2024"
 
