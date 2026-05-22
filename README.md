@@ -53,6 +53,8 @@ The `riptide` binary will be placed in `~/.cargo/bin/`. Make sure that directory
 
 ### Nix
 
+Tested on: `x86_64-linux`. `darwin` support included, but not tested.
+
 Add riptide as your `flake.nix` input:
 
 ```nix
