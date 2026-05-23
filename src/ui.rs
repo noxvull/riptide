@@ -223,7 +223,7 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
     let anchor = if focused { cursor } else { current };
     let item_h = 2usize;
     let visible = (inner.height as usize).saturating_div(item_h).max(1);
-    let offset = if anchor + 1 > visible { anchor + 1 - visible } else { 0 };
+    let offset = (anchor + 1).saturating_sub(visible);
 
     let mut y = inner.y;
     for (i, track) in queue.iter().enumerate().skip(offset) {
@@ -282,7 +282,7 @@ fn render_command_overlay(f: &mut Frame, app: &App, area: Rect) {
     // Input line: "/ <typed><ghost>█"
     let q_lower = app.command.input.to_lowercase();
     let ghost = matches.first().map(|m| &m[q_lower.len()..]).unwrap_or("");
-    let cursor = if (app.tick / 30) % 2 == 0 { "█" } else { " " };
+    let cursor = if (app.tick / 30).is_multiple_of(2) { "█" } else { " " };
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled("/ ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
@@ -432,8 +432,8 @@ fn render_artist_list(f: &mut Frame, app: &App, area: Rect) {
     let height = inner.height as usize;
     let items: Vec<ListItem> = visible_artist_items(&app.artists.items, app.artists.selected, height)
         .iter()
-        .enumerate()
-        .map(|(_, (abs_idx, artist))| {
+        
+        .map(|(abs_idx, artist)| {
             let selected = *abs_idx == app.artists.selected;
             let style = if selected {
                 Style::default().bg(HIGHLIGHT_BG).fg(Color::White).add_modifier(Modifier::BOLD)
@@ -944,7 +944,7 @@ fn kitty_image_seq(bytes: &[u8], cols: u16, rows: u16, image_id: u16) -> String 
 
 fn base64_encode(data: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
@@ -1124,7 +1124,7 @@ fn render_album_detail(f: &mut Frame, app: &App, detail: &crate::app::AlbumDetai
 // ── Search results (three-pane layout) ───────────────────────────────────────
 
 fn render_search_input_line(app: &App) -> Line<'static> {
-    let cursor = if (app.tick / 30) % 2 == 0 { "█" } else { " " };
+    let cursor = if (app.tick / 30).is_multiple_of(2) { "█" } else { " " };
     if app.search.query.is_empty() {
         Line::from(vec![
             Span::styled("Search  ", Style::default().fg(DIM)),
@@ -1584,11 +1584,11 @@ fn scroll_offset(selected: usize, height: usize) -> usize {
     }
 }
 
-fn visible_artist_items<'a>(
-    items: &'a [crate::api::models::Artist],
+fn visible_artist_items(
+    items: &[crate::api::models::Artist],
     selected: usize,
     height: usize,
-) -> Vec<(usize, &'a crate::api::models::Artist)> {
+) -> Vec<(usize, &crate::api::models::Artist)> {
     let offset = scroll_offset(selected, height);
     items
         .iter()
