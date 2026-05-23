@@ -332,9 +332,7 @@ fn render_command_overlay(f: &mut Frame, app: &App, area: Rect) {
 // ── Sort overlay ──────────────────────────────────────────────────────────────
 
 fn render_sort_overlay(f: &mut Frame, app: &App, area: Rect) {
-    use crate::app::SortPalette;
-
-    let options = SortPalette::OPTIONS;
+    let options = app.current_tab.sorting_options();
     let box_w: u16 = 26;
     let box_h: u16 = 2 + options.len() as u16; // border top/bottom + one row per option
 
@@ -432,7 +430,7 @@ fn render_artist_list(f: &mut Frame, app: &App, area: Rect) {
     let height = inner.height as usize;
     let items: Vec<ListItem> = visible_artist_items(&app.artists.items, app.artists.selected, height)
         .iter()
-        
+
         .map(|(abs_idx, artist)| {
             let selected = *abs_idx == app.artists.selected;
             let style = if selected {
