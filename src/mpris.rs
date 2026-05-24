@@ -224,8 +224,8 @@ impl MprisServer {
             {
                 let guard = iface_ref.get().await;
                 let ctx = iface_ref.signal_context();
-                let _ = PlayerIface::playback_status_changed(&*guard, ctx).await;
-                let _ = PlayerIface::metadata_changed(&*guard, ctx).await;
+                let _ = PlayerIface::playback_status_changed(&guard, ctx).await;
+                let _ = PlayerIface::metadata_changed(&guard, ctx).await;
             }
         }
     }

@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::api::{ApiRequest, ApiResponse};
-use crate::app::{App, ArtistDetailFocus, SearchPane, SortPalette, Tab, View};
+use crate::app::{App, ArtistDetailFocus, SearchPane, Tab, View};
 use crate::mpris::MprisCmd;
 use crate::player::{PlayerCmd, PlayerEvent};
 
@@ -50,11 +50,10 @@ pub fn run_app(
         }
 
         // Poll for key events with a short timeout to keep animations smooth
-        if event::poll(Duration::from_millis(16))? {
-            if let Event::Key(key) = event::read()? {
+        if event::poll(Duration::from_millis(16))?
+            && let Event::Key(key) = event::read()? {
                 handle_key(app, key);
             }
-        }
     }
     Ok(())
 }
@@ -155,11 +154,10 @@ fn handle_command_input(app: &mut App, key: KeyEvent) {
                 app.command.selected = 0;
             }
         }
-        KeyCode::Up => {
-            if app.command.selected > 0 {
+        KeyCode::Up
+            if app.command.selected > 0 => {
                 app.command.selected -= 1;
             }
-        }
         KeyCode::Down => {
             let len = app.command.matches().len();
             if app.command.selected + 1 < len {
@@ -211,24 +209,25 @@ fn execute_command(app: &mut App, cmd: &str) {
 }
 
 fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
-    let count = SortPalette::OPTIONS.len();
+    let options = app.current_tab.sorting_options();
+    let count = options.len();
     match key.code {
         KeyCode::Esc => {
             app.sort_palette.active = false;
         }
-        KeyCode::Up | KeyCode::Char('k') => {
-            if app.sort_palette.selected > 0 {
+        KeyCode::Up | KeyCode::Char('k')
+            if app.sort_palette.selected > 0 => {
                 app.sort_palette.selected -= 1;
             }
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            if app.sort_palette.selected + 1 < count {
+        KeyCode::Down | KeyCode::Char('j')
+            if app.sort_palette.selected + 1 < count => {
                 app.sort_palette.selected += 1;
             }
-        }
         KeyCode::Enter => {
-            let field = SortPalette::OPTIONS[app.sort_palette.selected].1;
-            app.apply_sort(field);
+            let options = app.current_tab.sorting_options();
+            if let Some((_, field)) = options.get(app.sort_palette.selected) {
+                app.apply_sort(*field);
+            }
         }
         _ => {}
     }
@@ -518,11 +517,10 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
             _ => {}
         },
         KeyCode::Char('s') => match app.current_tab {
-            Tab::Favorites | Tab::Artists | Tab::Albums | Tab::Playlists => {
-                if app.view_stack.is_empty() {
+            Tab::Favorites | Tab::Artists | Tab::Albums | Tab::Playlists
+                if app.view_stack.is_empty() => {
                     app.open_sort_palette();
                 }
-            }
             _ => {}
         },
         KeyCode::Char('r') => match app.current_tab {
@@ -589,11 +587,10 @@ fn handle_queue_input(app: &mut App, key: KeyEvent) {
         KeyCode::Esc | KeyCode::Left | KeyCode::Char('h') => {
             app.unfocus_queue();
         }
-        KeyCode::Up | KeyCode::Char('k') => {
-            if app.queue_cursor > 0 {
+        KeyCode::Up | KeyCode::Char('k')
+            if app.queue_cursor > 0 => {
                 app.queue_cursor -= 1;
             }
-        }
         KeyCode::Down | KeyCode::Char('j') => {
             let len = app.now_playing.queue.len();
             if len > 0 && app.queue_cursor + 1 < len {
@@ -632,26 +629,22 @@ fn check_load_more(app: &mut App) {
     }
 
     match app.current_tab {
-        Tab::Artists if app.view_stack.is_empty() => {
-            if app.artists.should_load_more() {
+        Tab::Artists if app.view_stack.is_empty()
+            && app.artists.should_load_more() => {
                 app.load_artists();
             }
-        }
-        Tab::Albums if app.view_stack.is_empty() => {
-            if app.fav_albums.should_load_more() {
+        Tab::Albums if app.view_stack.is_empty()
+            && app.fav_albums.should_load_more() => {
                 app.load_fav_albums();
             }
-        }
-        Tab::Playlists if app.view_stack.is_empty() => {
-            if app.playlists.should_load_more() {
+        Tab::Playlists if app.view_stack.is_empty()
+            && app.playlists.should_load_more() => {
                 app.load_playlists();
             }
-        }
-        Tab::Favorites if app.view_stack.is_empty() => {
-            if app.favorites.should_load_more() {
+        Tab::Favorites if app.view_stack.is_empty()
+            && app.favorites.should_load_more() => {
                 app.load_favorites();
             }
-        }
         _ => {}
     }
 }
