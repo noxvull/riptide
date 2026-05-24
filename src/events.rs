@@ -436,8 +436,11 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
             Tab::Albums => app.open_selected_fav_album(),
             Tab::Playlists => app.open_selected_playlist(),
             Tab::Favorites => {
-                let idx = app.favorites.selected;
-                let tracks = app.favorites.items.clone();
+                let mut idx = app.favorites.selected;
+                let mut tracks = app.favorites.items.clone();
+                if app.shuffle_active {
+                    (tracks, idx) = app.shuffle_tracks(tracks, idx);
+                }
                 if !tracks.is_empty() {
                     app.play_tracks(tracks, idx);
                 }
@@ -521,6 +524,27 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                 if app.view_stack.is_empty() => {
                     app.open_sort_palette();
                 }
+            _ => {}
+        },
+        KeyCode::Char('S') => match app.current_tab {
+            Tab::Favorites => {
+                app.shuffle_active = !app.shuffle_active;
+                let mut idx = app.favorites.selected;
+                let mut tracks = app.favorites.items.clone();
+                if app.now_playing.active && !app.now_playing.paused {
+                    // Reset to default state -> before shuffle
+                    if app.shuffle_active == false {
+                        if !tracks.is_empty() {
+                            app.play_tracks(tracks, idx);
+                        }
+                    } else {
+                        (tracks, idx) = app.shuffle_tracks(tracks, idx);
+                        if !tracks.is_empty() {
+                            app.play_tracks(tracks, idx);
+                        }
+                    }
+                }
+            }
             _ => {}
         },
         KeyCode::Char('r') => match app.current_tab {
