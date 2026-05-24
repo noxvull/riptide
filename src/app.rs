@@ -2,6 +2,7 @@
 // Copyright (C) 2025 Ryan Cohan
 
 use tokio::sync::{mpsc, watch};
+use rand::seq::SliceRandom;
 
 use crate::api::{ApiRequest, ApiResponse};
 use crate::api::models::*;
@@ -384,6 +385,7 @@ pub struct App {
     pub fav_albums_sort: Option<SortField>,
     pub playlists_sort: Option<SortField>,
     pub now_playing: NowPlaying,
+    pub shuffle_active: bool,
 
     pub queue_focused: bool,
     pub queue_cursor: usize,
@@ -419,6 +421,7 @@ impl App {
             fav_albums_sort: None,
             playlists_sort: None,
             now_playing: NowPlaying::default(),
+            shuffle_active: false,
             queue_focused: false,
             queue_cursor: 0,
             tick: 0,
@@ -951,6 +954,16 @@ impl App {
     pub fn start_artist_radio(&mut self, artist: &Artist) {
         let _ = self.api_tx.send(ApiRequest::ArtistRadio { artist_id: artist.id });
         self.set_status(format!("Loading radio for {}…", artist.name), StatusLevel::Info);
+    }
+
+    pub fn shuffle_tracks(&mut self, mut tracks: Vec<Track>, mut idx: usize) -> (Vec<Track>, usize) {
+        if let Some(selected_item) = tracks.get(idx).cloned() {
+            tracks.shuffle(&mut rand::rng());
+            if let Some(new_idx) = tracks.iter().position(|track| *track == selected_item) {
+                idx = new_idx;
+            }
+        }
+        (tracks, idx)
     }
 
     pub fn add_to_queue(&mut self, track: Track) {
