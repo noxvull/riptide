@@ -1253,12 +1253,22 @@ impl App {
 
     pub fn open_playlist(&mut self, playlist: Playlist) {
         let uuid = playlist.uuid.clone();
-        let detail = PlaylistDetail {
-            playlist,
-            tracks: StatefulList::default(),
-        };
+        let mut tracks: StatefulList<Track> = StatefulList::default();
+        tracks.loading = true;
+        let detail = PlaylistDetail { playlist, tracks };
         self.view_stack.push(View::PlaylistDetail(detail));
         let _ = self.api_tx.send(ApiRequest::LoadPlaylistTracks { uuid, offset: 0 });
+    }
+
+    pub fn load_more_playlist_tracks(&mut self) {
+        if let Some(View::PlaylistDetail(detail)) = self.view_stack.last_mut() {
+            if !detail.tracks.loading && !detail.tracks.exhausted {
+                let uuid = detail.playlist.uuid.clone();
+                let offset = detail.tracks.next_offset;
+                detail.tracks.loading = true;
+                let _ = self.api_tx.send(ApiRequest::LoadPlaylistTracks { uuid, offset });
+            }
+        }
     }
 
     // ── Tick ──────────────────────────────────────────────────────────────────

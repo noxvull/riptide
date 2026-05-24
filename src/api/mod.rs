@@ -133,13 +133,22 @@ async fn handle_request(client: Arc<ApiClient>, req: ApiRequest) -> ApiResponse 
                     for pl in &mut page.items {
                         pl.added_at = pl.created.clone();
                     }
-                    // On the first page, also pull in followed playlists (saved by others).
+                    // On the first page, merge followed playlists from both sources.
                     if offset == 0 {
+                        // v1 favorites — covers playlists saved by older Riptide builds.
                         if let Ok(fav_page) = client.get_favorite_playlists(100).await {
                             for entry in fav_page.items {
-                                if !page.items.iter().any(|p| p.uuid == entry.item.uuid) {
-                                    let mut pl = entry.item;
+                                if !page.items.iter().any(|p| p.uuid == entry.playlist.uuid) {
+                                    let mut pl = entry.playlist;
                                     pl.added_at = entry.created;
+                                    page.items.push(pl);
+                                }
+                            }
+                        }
+                        // v2 collection — covers playlists saved via the Tidal web/mobile apps.
+                        if let Ok((coll, _)) = client.get_user_collection_playlists(None).await {
+                            for pl in coll {
+                                if !page.items.iter().any(|p| p.uuid == pl.uuid) {
                                     page.items.push(pl);
                                 }
                             }

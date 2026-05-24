@@ -619,6 +619,15 @@ fn handle_queue_input(app: &mut App, key: KeyEvent) {
 }
 
 fn check_load_more(app: &mut App) {
+    // Playlist detail tracks — checked before tab-level lists so the guard below
+    // (`view_stack.is_empty()`) doesn't shadow it.
+    if let Some(View::PlaylistDetail(detail)) = app.view_stack.last() {
+        if detail.tracks.should_load_more() {
+            app.load_more_playlist_tracks();
+            return;
+        }
+    }
+
     match app.current_tab {
         Tab::Artists if app.view_stack.is_empty()
             && app.artists.should_load_more() => {
