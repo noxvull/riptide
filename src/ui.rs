@@ -825,7 +825,7 @@ fn render_playlist_list(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White)
             };
             let prefix = if selected { "▶ " } else { "  " };
-            ListItem::new(format!("{prefix}{} ({} tracks)", pl.title, pl.number_of_tracks))
+            ListItem::new(format!("{prefix}{} ({} tracks)", pl.title, pl.number_of_tracks.unwrap_or(0)))
                 .style(style)
         })
         .collect();
@@ -1319,7 +1319,7 @@ fn render_search_pane_playlists(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White)
             };
             let prefix = if selected { "▶ " } else { "  " };
-            ListItem::new(format!("{prefix}{} ({} tracks)", pl.title, pl.number_of_tracks))
+            ListItem::new(format!("{prefix}{} ({} tracks)", pl.title, pl.number_of_tracks.unwrap_or(0)))
                 .style(style)
         })
         .collect();

@@ -142,8 +142,8 @@ pub struct FavoriteTrackEntry {
 pub struct Playlist {
     pub uuid: String,
     pub title: String,
-    #[serde(rename = "numberOfTracks")]
-    pub number_of_tracks: u32,
+    #[serde(rename = "numberOfTracks", default)]
+    pub number_of_tracks: Option<u32>,
     /// Creation date returned by the API for owned playlists.
     #[serde(default)]
     pub created: Option<String>,
@@ -154,7 +154,9 @@ pub struct Playlist {
 #[derive(Debug, Deserialize)]
 pub struct FavoritePlaylistEntry {
     pub created: Option<String>,
-    pub item: Playlist,
+    // Tidal uses "playlist" here; every other favorites endpoint uses "item".
+    #[serde(alias = "item")]
+    pub playlist: Playlist,
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────

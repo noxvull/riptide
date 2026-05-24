@@ -10,7 +10,53 @@ use super::auth::refresh_token_async;
 use super::models::*;
 
 const BASE: &str = "https://api.tidal.com/v1";
+const OPENAPI_BASE: &str = "https://openapi.tidal.com/v2";
 const CLIENT_VERSION: &str = "2025.7.16";
+
+// Private types for the openapi.tidal.com/v2 JSON:API collection endpoints.
+#[derive(serde::Deserialize)]
+struct OpenApiRelPage {
+    data: Vec<OpenApiRelItem>,
+    #[serde(default)]
+    included: Vec<OpenApiIncluded>,
+    links: Option<OpenApiLinks>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiRelItem {
+    id: String,
+    meta: Option<OpenApiItemMeta>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiItemMeta {
+    #[serde(rename = "addedAt")]
+    added_at: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiIncluded {
+    id: String,
+    attributes: Option<OpenApiPlaylistAttrs>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiPlaylistAttrs {
+    name: String,
+    #[serde(rename = "numberOfItems")]
+    number_of_items: Option<u32>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiLinks {
+    meta: Option<OpenApiLinksMeta>,
+}
+
+#[derive(serde::Deserialize)]
+struct OpenApiLinksMeta {
+    #[serde(rename = "nextCursor")]
+    next_cursor: Option<String>,
+}
 const USER_AGENT: &str = "Mozilla/5.0 (Linux; Android 12; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36";
 
 pub struct ApiClient {
@@ -81,6 +127,91 @@ impl ApiClient {
         })
     }
 
+
+    async fn get_openapi<T: DeserializeOwned>(&self, path: &str, params: &[(&str, String)]) -> Result<T> {
+        let token = self.token.read().await.clone();
+        let url = format!("{OPENAPI_BASE}{path}");
+        let mut all_params = vec![("countryCode", self.config.country_code.clone())];
+        all_params.extend_from_slice(params);
+
+        let bytes = self.http
+            .get(&url)
+            .bearer_auth(&token)
+            .query(&all_params)
+            .send()
+            .await
+            .context("openapi GET failed")?
+            .error_for_status()?
+            .bytes()
+            .await?;
+
+        serde_json::from_slice::<T>(&bytes).map_err(|e| {
+            let snippet: String = String::from_utf8_lossy(&bytes).chars().take(400).collect();
+            anyhow::anyhow!("{e} — body: {snippet}")
+        })
+    }
+
+    async fn post_openapi_json(&self, path: &str, body: &serde_json::Value) -> Result<()> {
+        let token = self.token.read().await.clone();
+        let url = format!("{OPENAPI_BASE}{path}");
+        self.http
+            .post(&url)
+            .bearer_auth(&token)
+            .query(&[("countryCode", &self.config.country_code)])
+            .json(body)
+            .send()
+            .await
+            .context("openapi POST failed")?
+            .error_for_status()?;
+        Ok(())
+    }
+
+    async fn delete_openapi_json(&self, path: &str, body: &serde_json::Value) -> Result<()> {
+        let token = self.token.read().await.clone();
+        let url = format!("{OPENAPI_BASE}{path}");
+        self.http
+            .delete(&url)
+            .bearer_auth(&token)
+            .query(&[("countryCode", &self.config.country_code)])
+            .json(body)
+            .send()
+            .await
+            .context("openapi DELETE failed")?
+            .error_for_status()?;
+        Ok(())
+    }
+
+    pub async fn get_user_collection_playlists(&self, cursor: Option<&str>) -> Result<(Vec<Playlist>, Option<String>)> {
+        let mut params = vec![("include", "items".to_string())];
+        if let Some(c) = cursor {
+            params.push(("page[cursor]", c.to_string()));
+        }
+
+        let page: OpenApiRelPage = self.get_openapi(
+            "/userCollectionPlaylists/me/relationships/items",
+            &params,
+        ).await?;
+
+        let attrs: std::collections::HashMap<String, OpenApiPlaylistAttrs> = page.included
+            .into_iter()
+            .filter_map(|r| r.attributes.map(|a| (r.id, a)))
+            .collect();
+
+        let playlists = page.data.into_iter().filter_map(|r| {
+            let attr = attrs.get(&r.id)?;
+            let added_at = r.meta.and_then(|m| m.added_at);
+            Some(Playlist {
+                uuid: r.id,
+                title: attr.name.clone(),
+                number_of_tracks: attr.number_of_items,
+                created: None,
+                added_at,
+            })
+        }).collect();
+
+        let next_cursor = page.links.and_then(|l| l.meta).and_then(|m| m.next_cursor);
+        Ok((playlists, next_cursor))
+    }
 
     async fn post_form(&self, path: &str, form: &[(&str, String)]) -> Result<()> {
         let token = self.token.read().await.clone();
@@ -168,16 +299,13 @@ impl ApiClient {
     }
 
     pub async fn save_playlist(&self, uuid: &str) -> Result<()> {
-        let uid = self.uid()?;
-        self.post_form(
-            &format!("/users/{uid}/favorites/playlists"),
-            &[("uuid", uuid.to_string())],
-        ).await
+        let body = serde_json::json!({"data": [{"id": uuid, "type": "playlists"}]});
+        self.post_openapi_json("/userCollectionPlaylists/me/relationships/items", &body).await
     }
 
     pub async fn remove_playlist(&self, uuid: &str) -> Result<()> {
-        let uid = self.uid()?;
-        self.delete(&format!("/users/{uid}/favorites/playlists/{uuid}")).await
+        let body = serde_json::json!({"data": [{"id": uuid, "type": "playlists"}]});
+        self.delete_openapi_json("/userCollectionPlaylists/me/relationships/items", &body).await
     }
 
     pub async fn get_playlist_tracks(&self, uuid: &str, offset: u32, limit: u32) -> Result<Page<Track>> {
