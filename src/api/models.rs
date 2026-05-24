@@ -14,7 +14,7 @@ pub struct Page<T> {
 
 // ── References ────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct ArtistRef {
     pub name: String,
 }
@@ -38,13 +38,13 @@ pub struct FavoriteArtistEntry {
 
 // ── Albums ────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 pub struct MediaMetadata {
     #[serde(default)]
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Album {
     pub id: u64,
     pub title: String,
@@ -87,7 +87,7 @@ pub struct FavoriteAlbumEntry {
 
 // ── Tracks ────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 pub struct Track {
     pub id: u64,
     pub title: String,
