@@ -1354,7 +1354,9 @@ fn render_now_playing(f: &mut Frame, app: &App, area: Rect) {
     let cols = Layout::horizontal([
         Constraint::Percentage(35),
         Constraint::Percentage(30),
-        Constraint::Percentage(35),
+        Constraint::Percentage(20),
+        Constraint::Percentage(10),
+        Constraint::Percentage(5),
     ])
     .split(sections[2]);
 
@@ -1403,6 +1405,18 @@ fn render_now_playing(f: &mut Frame, app: &App, area: Rect) {
         cols[2],
     );
 
+    let shuffle_status;
+
+    if app.shuffle_active {
+        shuffle_status="ON ";
+    }
+    else {
+        shuffle_status="OFF";
+    }
+    f.render_widget(
+    Paragraph::new(format!("Shuffle: {}", shuffle_status)).alignment(Alignment::Right).style(Style::default().fg(DIM)),
+    cols[3],
+    );
 }
 
 fn render_lyrics(f: &mut Frame, app: &App, area: Rect) {
@@ -1513,7 +1527,7 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
         ]
     } else {
         &[
-            ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("s", "sort"), ("→", "focus queue"),
+            ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("s", "sort"), ("S", "shuffle"), ("→", "focus queue"),
             ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
         ]
     };
