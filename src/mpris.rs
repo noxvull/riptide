@@ -200,15 +200,9 @@ impl MprisServer {
             })) {
             Ok(builder) => match builder.build().await {
                 Ok(c) => c,
-                Err(e) => {
-                    eprintln!("MPRIS: failed to connect to D-Bus: {e}");
-                    return;
-                }
+                Err(_) => return,
             },
-            Err(e) => {
-                eprintln!("MPRIS: D-Bus setup failed: {e}");
-                return;
-            }
+            Err(_) => return,
         };
 
         loop {

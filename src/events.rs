@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2025 Ryan Cohan
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -123,6 +123,7 @@ fn handle_key(app: &mut App, key: KeyEvent) {
         KeyCode::Char(' ') => app.toggle_pause(),
         KeyCode::Char('n') => app.next_track(),
         KeyCode::Char('p') => app.prev_track(),
+        KeyCode::Char('z') => app.toggle_shuffle(),
         KeyCode::Esc => {
             if leaving_album(app) { kitty_delete_album_art(); }
             if leaving_artist(app) { kitty_delete_artist_art(); }
@@ -589,6 +590,12 @@ fn handle_queue_input(app: &mut App, key: KeyEvent) {
         KeyCode::Esc | KeyCode::Left | KeyCode::Char('h') => {
             app.unfocus_queue();
         }
+        KeyCode::Up if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.move_queue_track_up();
+        }
+        KeyCode::Down if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.move_queue_track_down();
+        }
         KeyCode::Up | KeyCode::Char('k') => {
             if app.queue_cursor > 0 {
                 app.queue_cursor -= 1;
@@ -613,6 +620,7 @@ fn handle_queue_input(app: &mut App, key: KeyEvent) {
                 app.toggle_favorite_track(&track);
             }
         }
+        KeyCode::Char('z') => app.toggle_shuffle(),
         KeyCode::Char(' ') => app.toggle_pause(),
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.should_quit = true;

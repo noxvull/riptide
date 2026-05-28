@@ -309,6 +309,9 @@ pub struct NowPlaying {
     pub lyrics_loading: bool,
     pub sample_rate: Option<u32>,
     pub codec: Option<String>,
+    pub shuffle: bool,
+    /// Saved queue order before shuffling; restored when shuffle is toggled off.
+    pub original_queue: Vec<Track>,
 }
 
 impl Default for NowPlaying {
@@ -330,6 +333,8 @@ impl Default for NowPlaying {
             lyrics_loading: false,
             sample_rate: None,
             codec: None,
+            shuffle: false,
+            original_queue: Vec::new(),
         }
     }
 }
@@ -1078,6 +1083,92 @@ impl App {
             }
             self.fetch_now_playing_metadata();
             self.push_mpris_state();
+        }
+    }
+
+    pub fn move_queue_track_up(&mut self) {
+        let idx = self.queue_cursor;
+        if idx == 0 {
+            return;
+        }
+        let qi = self.now_playing.queue_index;
+        let old_next_id = self.now_playing.queue.get(qi + 1).map(|t| t.id);
+
+        self.now_playing.queue.swap(idx, idx - 1);
+
+        let new_qi = if idx == qi { qi - 1 } else if idx - 1 == qi { qi + 1 } else { qi };
+        self.now_playing.queue_index = new_qi;
+
+        let new_next_id = self.now_playing.queue.get(new_qi + 1).map(|t| t.id);
+        if new_next_id != old_next_id {
+            let _ = self.player_tx.send(PlayerCmd::RemoveNext);
+            if let Some(next) = self.now_playing.queue.get(new_qi + 1) {
+                let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: next.id });
+            }
+        }
+
+        self.queue_cursor = idx - 1;
+    }
+
+    pub fn move_queue_track_down(&mut self) {
+        let idx = self.queue_cursor;
+        if idx + 1 >= self.now_playing.queue.len() {
+            return;
+        }
+        let qi = self.now_playing.queue_index;
+        let old_next_id = self.now_playing.queue.get(qi + 1).map(|t| t.id);
+
+        self.now_playing.queue.swap(idx, idx + 1);
+
+        let new_qi = if idx == qi { qi + 1 } else if idx + 1 == qi { qi - 1 } else { qi };
+        self.now_playing.queue_index = new_qi;
+
+        let new_next_id = self.now_playing.queue.get(new_qi + 1).map(|t| t.id);
+        if new_next_id != old_next_id {
+            let _ = self.player_tx.send(PlayerCmd::RemoveNext);
+            if let Some(next) = self.now_playing.queue.get(new_qi + 1) {
+                let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: next.id });
+            }
+        }
+
+        self.queue_cursor = idx + 1;
+    }
+
+    pub fn toggle_shuffle(&mut self) {
+        if self.now_playing.queue.is_empty() {
+            return;
+        }
+        if self.now_playing.shuffle {
+            self.now_playing.shuffle = false;
+            if !self.now_playing.original_queue.is_empty() {
+                let current_id = self.now_playing.track.as_ref().map(|t| t.id);
+                self.now_playing.queue = std::mem::take(&mut self.now_playing.original_queue);
+                if let Some(id) = current_id {
+                    if let Some(idx) = self.now_playing.queue.iter().position(|t| t.id == id) {
+                        self.now_playing.queue_index = idx;
+                        if let Some(next) = self.now_playing.queue.get(idx + 1) {
+                            let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: next.id });
+                        }
+                    }
+                }
+            }
+            self.set_status("Shuffle off".to_string(), StatusLevel::Info);
+        } else {
+            self.now_playing.original_queue = self.now_playing.queue.clone();
+            self.now_playing.shuffle = true;
+            let qi = self.now_playing.queue_index;
+            // Pull the current track out, shuffle everything else, place it at front.
+            let current = self.now_playing.queue.remove(qi);
+            {
+                use rand::seq::SliceRandom;
+                self.now_playing.queue.shuffle(&mut rand::thread_rng());
+            }
+            self.now_playing.queue.insert(0, current);
+            self.now_playing.queue_index = 0;
+            if let Some(next) = self.now_playing.queue.get(1) {
+                let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: next.id });
+            }
+            self.set_status("Shuffle on".to_string(), StatusLevel::Info);
         }
     }
 

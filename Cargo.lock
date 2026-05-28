@@ -1566,7 +1566,7 @@ dependencies = [
 
 [[package]]
 name = "riptide"
-version = "0.3.10"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1575,6 +1575,7 @@ dependencies = [
  "dirs",
  "image",
  "open",
+ "rand",
  "ratatui",
  "reqwest",
  "serde",

@@ -200,21 +200,35 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
     } else {
         Style::default().fg(Color::Rgb(40, 40, 40))
     };
+    // No title on the block — ratatui doesn't reserve a row for titles on
+    // Borders::LEFT-only blocks, so the title would be overdrawn by content.
     let block = Block::default()
-        .title(Span::styled(" Queue ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)))
         .borders(Borders::LEFT)
         .border_style(border_style);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
+    // Title row rendered manually at the top of the inner area.
+    let queue_title = if app.now_playing.shuffle { " Queue ⇄ " } else { " Queue " };
+    f.render_widget(
+        Paragraph::new(Span::styled(queue_title, Style::default().fg(ACCENT).add_modifier(Modifier::BOLD))),
+        Rect::new(inner.x, inner.y, inner.width, 1),
+    );
+
+    // Content area starts one row below the title.
+    let content_y = inner.y + 1;
+    let content_h = inner.height.saturating_sub(1);
+
     let queue = &app.now_playing.queue;
     if queue.is_empty() {
-        f.render_widget(
-            Paragraph::new("no queue")
-                .style(Style::default().fg(DIM))
-                .alignment(Alignment::Center),
-            inner,
-        );
+        if content_h > 0 {
+            f.render_widget(
+                Paragraph::new("no queue")
+                    .style(Style::default().fg(DIM))
+                    .alignment(Alignment::Center),
+                Rect::new(inner.x, content_y, inner.width, content_h),
+            );
+        }
         return;
     }
 
@@ -222,12 +236,12 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
     let cursor = app.queue_cursor;
     let anchor = if focused { cursor } else { current };
     let item_h = 2usize;
-    let visible = (inner.height as usize).saturating_div(item_h).max(1);
+    let visible = (content_h as usize).saturating_div(item_h).max(1);
     let offset = if anchor + 1 > visible { anchor + 1 - visible } else { 0 };
 
-    let mut y = inner.y;
+    let mut y = content_y;
     for (i, track) in queue.iter().enumerate().skip(offset) {
-        if y + 1 >= inner.y + inner.height {
+        if y + 1 >= content_y + content_h {
             break;
         }
         let is_cur = i == current;
@@ -423,7 +437,7 @@ fn render_artist_list(f: &mut Frame, app: &App, area: Rect) {
         } else {
             format!(" Artists ({}) ", app.artists.total)
         })
-        .borders(Borders::ALL)
+        .borders(Borders::TOP)
         .border_style(Style::default().fg(ACCENT));
 
     let inner = block.inner(area);
@@ -469,7 +483,7 @@ fn render_fav_albums_list(f: &mut Frame, app: &App, area: Rect) {
         } else {
             format!(" Albums ({}) ", app.fav_albums.total)
         })
-        .borders(Borders::ALL)
+        .borders(Borders::TOP)
         .border_style(Style::default().fg(ACCENT));
 
     let inner = block.inner(area);
@@ -804,7 +818,7 @@ fn render_playlist_list(f: &mut Frame, app: &App, area: Rect) {
         } else {
             format!(" Playlists ({}) ", app.playlists.total)
         })
-        .borders(Borders::ALL)
+        .borders(Borders::TOP)
         .border_style(Style::default().fg(ACCENT));
 
     let inner = block.inner(area);
@@ -855,7 +869,7 @@ fn render_track_list(
 ) {
     let block = Block::default()
         .title(format!(" {title} ({}) ", tracks.len()))
-        .borders(Borders::ALL)
+        .borders(Borders::TOP)
         .border_style(Style::default().fg(ACCENT));
 
     let inner = block.inner(area);
@@ -1143,7 +1157,7 @@ fn render_search_results(f: &mut Frame, app: &App, area: Rect) {
     // Empty state — no results and not loading
     if app.search.total_results() == 0 && !app.search.loading {
         let block = Block::default()
-            .borders(Borders::ALL)
+            .borders(Borders::TOP)
             .border_style(Style::default().fg(ACCENT));
         let inner = block.inner(area);
         f.render_widget(block, area);
@@ -1174,7 +1188,7 @@ fn render_search_results(f: &mut Frame, app: &App, area: Rect) {
         let spinner = spinner_char(app.tick);
         let block = Block::default()
             .title(format!(" Searching {spinner} "))
-            .borders(Borders::ALL)
+            .borders(Borders::TOP)
             .border_style(Style::default().fg(DIM));
         f.render_widget(block, area);
         return;
@@ -1480,7 +1494,7 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
     let in_albums_tab = app.current_tab == Tab::Albums && !in_detail;
 
     let hints: &[(&str, &str)] = if app.queue_focused {
-        &[("↑↓", "navigate"), ("↵", "play from"), ("f", "favorite"), ("d", "remove"), ("←/esc", "back"), ("spc", "pause")]
+        &[("↑↓", "navigate"), ("↵", "play from"), ("f", "favorite"), ("d", "remove"), ("z", "shuffle"), ("^↑↓", "reorder"), ("←/esc", "back"), ("spc", "pause")]
     } else if app.command.active {
         &[("↑↓", "select"), ("tab", "complete"), ("↵", "go"), ("esc", "cancel")]
     } else if app.sort_palette.active {
@@ -1516,7 +1530,7 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
     } else {
         &[
             ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("s", "sort"), ("→", "focus queue"),
-            ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
+            ("spc", "pause"), ("n/p", "next/prev"), ("z", "shuffle"), ("/", "command"), ("q", "quit"),
         ]
     };
 
