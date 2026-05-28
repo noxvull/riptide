@@ -775,6 +775,8 @@ impl App {
         self.now_playing.track = Some(track);
         self.now_playing.active = false;
         self.now_playing.position = 0.0;
+        self.now_playing.shuffle = false;
+        self.now_playing.original_queue = Vec::new();
         let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: id });
         self.fetch_now_playing_metadata();
         self.push_mpris_state();
@@ -784,14 +786,35 @@ impl App {
         if tracks.is_empty() {
             return;
         }
-        let track_id = tracks.get(start_index).map(|t| t.id);
-        self.now_playing.track = tracks.get(start_index).cloned();
-        self.now_playing.queue = tracks;
-        self.now_playing.queue_index = start_index;
-        self.now_playing.active = false;
-        self.now_playing.position = 0.0;
-        if let Some(id) = track_id {
-            let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: id });
+        // If shuffle is active, save the original order, shuffle the new queue, and
+        // start from position 0. Otherwise reset shuffle state entirely.
+        if self.now_playing.shuffle {
+            self.now_playing.original_queue = tracks.clone();
+            let mut queue = tracks;
+            let current = queue.remove(start_index);
+            use rand::seq::SliceRandom;
+            queue.shuffle(&mut rand::thread_rng());
+            queue.insert(0, current);
+            let track_id = queue.first().map(|t| t.id);
+            self.now_playing.track = queue.first().cloned();
+            self.now_playing.queue = queue;
+            self.now_playing.queue_index = 0;
+            self.now_playing.active = false;
+            self.now_playing.position = 0.0;
+            if let Some(id) = track_id {
+                let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: id });
+            }
+        } else {
+            self.now_playing.original_queue = Vec::new();
+            let track_id = tracks.get(start_index).map(|t| t.id);
+            self.now_playing.track = tracks.get(start_index).cloned();
+            self.now_playing.queue = tracks;
+            self.now_playing.queue_index = start_index;
+            self.now_playing.active = false;
+            self.now_playing.position = 0.0;
+            if let Some(id) = track_id {
+                let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: id });
+            }
         }
         self.fetch_now_playing_metadata();
         self.push_mpris_state();
@@ -1165,6 +1188,8 @@ impl App {
             }
             self.now_playing.queue.insert(0, current);
             self.now_playing.queue_index = 0;
+            // Clear any URL mpv already has queued for the old next track.
+            let _ = self.player_tx.send(PlayerCmd::RemoveNext);
             if let Some(next) = self.now_playing.queue.get(1) {
                 let _ = self.api_tx.send(ApiRequest::ResolveStreamUrl { track_id: next.id });
             }

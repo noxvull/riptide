@@ -248,6 +248,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
         ToggleFavoriteAlbum(crate::api::models::Album),
         TrackRadio(crate::api::models::Track),
         ArtistRadio(crate::api::models::Artist),
+        FocusQueue,
     }
 
     let action: Action = if let Some(view) = app.view_stack.last_mut() {
@@ -283,12 +284,16 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                         return;
                     }
                     KeyCode::Right | KeyCode::Char('l') => {
-                        detail.focus = match detail.focus {
-                            ArtistDetailFocus::Bio    => ArtistDetailFocus::Tracks,
-                            ArtistDetailFocus::Tracks => ArtistDetailFocus::Albums,
-                            ArtistDetailFocus::Albums => ArtistDetailFocus::Albums,
-                        };
-                        return;
+                        if detail.focus == ArtistDetailFocus::Albums {
+                            Action::FocusQueue
+                        } else {
+                            detail.focus = match detail.focus {
+                                ArtistDetailFocus::Bio    => ArtistDetailFocus::Tracks,
+                                ArtistDetailFocus::Tracks => ArtistDetailFocus::Albums,
+                                ArtistDetailFocus::Albums => unreachable!(),
+                            };
+                            return;
+                        }
                     }
                     KeyCode::Enter => {
                         if detail.focus == ArtistDetailFocus::Tracks {
@@ -334,6 +339,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                 match key.code {
                     KeyCode::Up => { detail.tracks.prev(); return; }
                     KeyCode::Down => { detail.tracks.next(); return; }
+                    KeyCode::Right | KeyCode::Char('l') => Action::FocusQueue,
                     KeyCode::Enter => {
                         let idx = detail.tracks.selected;
                         let tracks = detail.tracks.items.clone();
@@ -364,6 +370,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                 match key.code {
                     KeyCode::Up => { detail.tracks.prev(); return; }
                     KeyCode::Down => { detail.tracks.next(); return; }
+                    KeyCode::Right | KeyCode::Char('l') => Action::FocusQueue,
                     KeyCode::Enter => {
                         let idx = detail.tracks.selected;
                         let tracks = detail.tracks.items.clone();
@@ -405,6 +412,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
         Action::ToggleFavoriteAlbum(album) => { app.toggle_favorite_album(&album); return; }
         Action::TrackRadio(track) => { app.start_track_radio(&track); return; }
         Action::ArtistRadio(artist) => { app.start_artist_radio(&artist); return; }
+        Action::FocusQueue => { app.focus_queue(); return; }
         Action::None => {}
     }
 

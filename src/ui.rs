@@ -1520,7 +1520,7 @@ fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
     } else if in_detail {
         &[
             ("↑↓", "navigate"), ("↵", "play"), ("a", "queue"), ("f", "toggle favorite"), ("r", "radio"),
-            ("esc", "back"), ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
+            ("→", "focus queue"), ("esc", "back"), ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
         ]
     } else if in_search_tab {
         &[
