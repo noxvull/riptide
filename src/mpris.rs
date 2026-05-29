@@ -19,6 +19,7 @@ pub struct MprisState {
     pub album: String,
     pub art_url: String,
     pub duration_us: i64,
+    pub position_us: i64,
     pub paused: bool,
     pub active: bool,
 }
@@ -105,7 +106,9 @@ impl PlayerIface {
     fn volume(&self) -> f64 { 1.0 }
 
     #[zbus(property)]
-    fn position(&self) -> i64 { 0 }
+    fn position(&self) -> i64 {
+        self.state.lock().unwrap().position_us
+    }
 
     #[zbus(property)]
     fn minimum_rate(&self) -> f64 { 1.0 }

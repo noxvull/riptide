@@ -73,6 +73,12 @@ impl App {
         let _ = self.player_tx.send(PlayerCmd::TogglePause);
     }
 
+    pub fn set_paused(&mut self, paused: bool) {
+        if self.now_playing.paused != paused {
+            let _ = self.player_tx.send(PlayerCmd::TogglePause);
+        }
+    }
+
     pub fn next_track(&mut self) {
         let next_idx = self.now_playing.queue_index + 1;
         if next_idx < self.now_playing.queue.len() {
@@ -280,6 +286,7 @@ impl App {
                     ))
                     .unwrap_or_default(),
                 duration_us: t.duration as i64 * 1_000_000,
+                position_us: (self.now_playing.position * 1_000_000.0) as i64,
                 paused: self.now_playing.paused,
                 active: self.now_playing.active,
             },

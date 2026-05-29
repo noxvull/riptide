@@ -35,7 +35,9 @@ pub fn run_app(
             match cmd {
                 MprisCmd::Next => app.next_track(),
                 MprisCmd::Previous => app.prev_track(),
-                MprisCmd::PlayPause | MprisCmd::Play | MprisCmd::Pause => app.toggle_pause(),
+                MprisCmd::Play => app.set_paused(false),
+                MprisCmd::Pause => app.set_paused(true),
+                MprisCmd::PlayPause => app.toggle_pause(),
                 MprisCmd::Stop => { let _ = app.player_tx.send(PlayerCmd::Stop); }
             }
         }

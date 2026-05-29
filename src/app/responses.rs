@@ -306,9 +306,19 @@ impl App {
                 }
                 self.now_playing.position = 0.0;
             }
-            PlayerEvent::Position(p)  => { self.now_playing.position = p; }
+            PlayerEvent::Position(p)  => {
+                // Only accept position updates that move forward (with 10ms tolerance for jitter).
+                // This prevents the audio widget from showing position going backward.
+                if p >= self.now_playing.position - 0.01 {
+                    self.now_playing.position = p;
+                    self.push_mpris_state();
+                }
+            }
             PlayerEvent::Duration(d)  => { self.now_playing.duration = d; }
-            PlayerEvent::Paused(p)    => { self.now_playing.paused = p; self.push_mpris_state(); }
+            PlayerEvent::Paused(p)    => {
+                self.now_playing.paused = p;
+                self.push_mpris_state();
+            }
             PlayerEvent::SampleRate(r) => { self.now_playing.sample_rate = Some(r); }
             PlayerEvent::Codec(c)     => { self.now_playing.codec = Some(c); }
             PlayerEvent::Error(e)     => {

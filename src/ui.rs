@@ -179,13 +179,13 @@ fn render_sidebar_nav(f: &mut Frame, app: &App, area: Rect) {
             break;
         }
         let selected = app.current_tab == *tab;
-        let style = if selected {
-            Style::default().bg(SELECT_BG).fg(Color::White).add_modifier(Modifier::BOLD)
+        let (prefix, style) = if selected {
+            ("│", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD))
         } else {
-            Style::default().fg(DIM)
+            (" ", Style::default().fg(DIM))
         };
         f.render_widget(
-            Paragraph::new(format!(" {}", tab.title())).style(style),
+            Paragraph::new(format!("{}{}", prefix, tab.title())).style(style),
             Rect::new(area.x, y, area.width, 1),
         );
     }
@@ -246,13 +246,16 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
         }
         let is_cur = i == current;
         let is_cursor = focused && i == cursor;
-        let bg = if is_cur { SELECT_BG } else if is_cursor { HIGHLIGHT_BG } else { Color::Reset };
-        let artist_style = Style::default().bg(bg).fg(if is_cur { Color::Rgb(180, 200, 255) } else { DIM });
-        let title_style = Style::default().bg(bg).fg(Color::White).add_modifier(Modifier::BOLD);
+        let (indicator, artist_style, title_style) = if is_cur {
+            ("♪", Style::default().fg(Color::Rgb(180, 200, 255)), Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+        } else if is_cursor {
+            ("▶", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD), Style::default().fg(ACCENT).add_modifier(Modifier::BOLD))
+        } else {
+            ("  ", Style::default().fg(DIM), Style::default().fg(Color::White))
+        };
 
-        let indicator = if is_cur { "♪ " } else if is_cursor { "▶ " } else { "  " };
         f.render_widget(
-            Paragraph::new(format!("{indicator}{}", track.artist_name())).style(artist_style),
+            Paragraph::new(format!("{} {}", indicator, track.artist_name())).style(artist_style),
             Rect::new(inner.x, y, inner.width, 1),
         );
         f.render_widget(
