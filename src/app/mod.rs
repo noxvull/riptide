@@ -1,0 +1,101 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2025 Ryan Cohan
+
+mod state;
+mod loading;
+mod navigation;
+mod playback;
+mod library;
+mod responses;
+
+pub use state::*;
+
+use tokio::sync::{mpsc, watch};
+use crate::api::ApiRequest;
+use crate::api::models::{Album, Artist, Playlist, Track};
+use crate::mpris::MprisState;
+use crate::player::PlayerCmd;
+
+// ── App ───────────────────────────────────────────────────────────────────────
+
+pub struct App {
+    pub should_quit: bool,
+    pub current_tab: Tab,
+    pub view_stack: Vec<View>,
+
+    pub artists:   StatefulList<Artist>,
+    pub fav_albums: StatefulList<Album>,
+    pub playlists: StatefulList<Playlist>,
+    pub favorites: StatefulList<Track>,
+    pub search:    SearchState,
+    pub command:   CommandState,
+    pub sort_palette:  SortPalette,
+    pub favorites_sort: Option<SortField>,
+    pub artists_sort:   Option<SortField>,
+    pub fav_albums_sort: Option<SortField>,
+    pub playlists_sort: Option<SortField>,
+    pub now_playing: NowPlaying,
+
+    pub queue_focused: bool,
+    pub queue_cursor:  usize,
+
+    pub tick: u64,
+    /// (message, level, tick when set) — cleared automatically after ~5 s
+    pub status: Option<(String, StatusLevel, u64)>,
+
+    pub api_tx:    mpsc::UnboundedSender<ApiRequest>,
+    pub player_tx: mpsc::UnboundedSender<PlayerCmd>,
+    pub mpris_tx:  watch::Sender<MprisState>,
+}
+
+impl App {
+    pub fn new(
+        api_tx:    mpsc::UnboundedSender<ApiRequest>,
+        player_tx: mpsc::UnboundedSender<PlayerCmd>,
+        mpris_tx:  watch::Sender<MprisState>,
+    ) -> Self {
+        let mut app = Self {
+            should_quit: false,
+            current_tab: Tab::Favorites,
+            view_stack:  Vec::new(),
+            artists:     StatefulList::default(),
+            fav_albums:  StatefulList::default(),
+            playlists:   StatefulList::default(),
+            favorites:   StatefulList::default(),
+            search:      SearchState::default(),
+            command:     CommandState::default(),
+            sort_palette:    SortPalette::default(),
+            favorites_sort:  None,
+            artists_sort:    None,
+            fav_albums_sort: None,
+            playlists_sort:  None,
+            now_playing:  NowPlaying::default(),
+            queue_focused: false,
+            queue_cursor:  0,
+            tick:   0,
+            status: None,
+            api_tx,
+            player_tx,
+            mpris_tx,
+        };
+        app.load_artists();
+        app.load_fav_albums();
+        app.load_playlists();
+        app.load_favorites();
+        app
+    }
+
+    pub fn tick(&mut self) {
+        self.tick = self.tick.wrapping_add(1);
+        // ~5 s at 16 ms/tick = 312 ticks
+        if let Some((_, _, set_at)) = self.status {
+            if self.tick.wrapping_sub(set_at) > 312 {
+                self.status = None;
+            }
+        }
+    }
+
+    pub(crate) fn set_status(&mut self, msg: String, level: StatusLevel) {
+        self.status = Some((msg, level, self.tick));
+    }
+}

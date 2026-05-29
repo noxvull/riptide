@@ -249,6 +249,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
         TrackRadio(crate::api::models::Track),
         ArtistRadio(crate::api::models::Artist),
         FocusQueue,
+        PlayPlaylistTracks(Vec<crate::api::models::Track>, usize, String),
     }
 
     let action: Action = if let Some(view) = app.view_stack.last_mut() {
@@ -343,7 +344,8 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                     KeyCode::Enter => {
                         let idx = detail.tracks.selected;
                         let tracks = detail.tracks.items.clone();
-                        Action::PlayTracks(tracks, idx)
+                        let uuid = detail.playlist.uuid.clone();
+                        Action::PlayPlaylistTracks(tracks, idx, uuid)
                     }
                     KeyCode::Char('a') => {
                         match detail.tracks.items.get(detail.tracks.selected).cloned() {
@@ -413,6 +415,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
         Action::TrackRadio(track) => { app.start_track_radio(&track); return; }
         Action::ArtistRadio(artist) => { app.start_artist_radio(&artist); return; }
         Action::FocusQueue => { app.focus_queue(); return; }
+        Action::PlayPlaylistTracks(tracks, idx, uuid) => { app.play_playlist_tracks(tracks, idx, uuid); return; }
         Action::None => {}
     }
 

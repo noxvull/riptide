@@ -383,3 +383,88 @@ fn strip_wimplinks(s: &str) -> String {
     out.push_str(rest);
     out
 }
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_lrc ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_lrc_basic_timestamps() {
+        let lines = parse_lrc("[00:01.00]Hello\n[00:02.50]World\n");
+        assert_eq!(lines.len(), 2);
+        assert!((lines[0].0 - 1.0).abs() < 0.01);
+        assert_eq!(lines[0].1, "Hello");
+        assert!((lines[1].0 - 2.5).abs() < 0.01);
+        assert_eq!(lines[1].1, "World");
+    }
+
+    #[test]
+    fn parse_lrc_sorts_out_of_order_lines() {
+        let lines = parse_lrc("[00:03.00]Third\n[00:01.00]First\n[00:02.00]Second\n");
+        assert_eq!(lines[0].1, "First");
+        assert_eq!(lines[1].1, "Second");
+        assert_eq!(lines[2].1, "Third");
+    }
+
+    #[test]
+    fn parse_lrc_skips_empty_text() {
+        let lines = parse_lrc("[00:01.00]\n[00:02.00]Real\n");
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].1, "Real");
+    }
+
+    #[test]
+    fn parse_lrc_ignores_metadata_tags() {
+        // Tags like [ti:Title] have no parseable timestamp and should be dropped.
+        let lines = parse_lrc("[ti:Title]\n[ar:Artist]\n[00:01.00]Lyric\n");
+        assert_eq!(lines.len(), 1);
+    }
+
+    #[test]
+    fn parse_lrc_empty_input_returns_empty() {
+        assert!(parse_lrc("").is_empty());
+    }
+
+    #[test]
+    fn parse_lrc_minutes_convert_correctly() {
+        let lines = parse_lrc("[02:30.00]Line\n");
+        assert!((lines[0].0 - 150.0).abs() < 0.01);
+    }
+
+    // ── strip_wimplinks ───────────────────────────────────────────────────────
+
+    #[test]
+    fn strip_wimplinks_removes_bracket_tags() {
+        let result = strip_wimplinks("[wimpLink href=\"tidal://\"]Artist[/wimpLink]");
+        assert_eq!(result, "Artist");
+    }
+
+    #[test]
+    fn strip_wimplinks_no_tags_unchanged() {
+        let s = "Plain biography text with no markup.";
+        assert_eq!(strip_wimplinks(s), s);
+    }
+
+    #[test]
+    fn strip_wimplinks_multiple_tags() {
+        let result = strip_wimplinks("[a]Foo[/a] and [b]Bar[/b]");
+        assert_eq!(result, "Foo and Bar");
+    }
+
+    #[test]
+    fn strip_wimplinks_unclosed_tag_preserved() {
+        // No closing ']' → the loop breaks and the remaining text (including '[')
+        // is appended verbatim. Must not panic.
+        let result = strip_wimplinks("Before [unclosed");
+        assert_eq!(result, "Before [unclosed");
+    }
+
+    #[test]
+    fn strip_wimplinks_empty_string() {
+        assert_eq!(strip_wimplinks(""), "");
+    }
+}

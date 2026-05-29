@@ -1,0 +1,509 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2025 Ryan Cohan
+
+use crate::api::models::*;
+
+// ── Tab ───────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tab {
+    Artists,
+    Albums,
+    Playlists,
+    Favorites,
+    Search,
+}
+
+impl Tab {
+    pub const ALL: [Tab; 5] = [Tab::Favorites, Tab::Artists, Tab::Albums, Tab::Playlists, Tab::Search];
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Tab::Favorites => "Favorites",
+            Tab::Artists   => "Artists",
+            Tab::Albums    => "Albums",
+            Tab::Playlists => "Playlists",
+            Tab::Search    => "Search",
+        }
+    }
+}
+
+// ── StatefulList ──────────────────────────────────────────────────────────────
+
+pub struct StatefulList<T> {
+    pub items: Vec<T>,
+    pub selected: usize,
+    pub loading: bool,
+    pub exhausted: bool,
+    pub next_offset: u32,
+    pub total: u32,
+}
+
+impl<T> Default for StatefulList<T> {
+    fn default() -> Self {
+        Self {
+            items: Vec::new(),
+            selected: 0,
+            loading: false,
+            exhausted: false,
+            next_offset: 0,
+            total: 0,
+        }
+    }
+}
+
+impl<T> StatefulList<T> {
+    pub fn next(&mut self) {
+        if self.items.is_empty() { return; }
+        self.selected = (self.selected + 1).min(self.items.len() - 1);
+    }
+
+    pub fn prev(&mut self) {
+        if self.selected > 0 { self.selected -= 1; }
+    }
+
+    pub fn selected_item(&self) -> Option<&T> {
+        self.items.get(self.selected)
+    }
+
+    pub fn should_load_more(&self) -> bool {
+        !self.loading
+            && !self.exhausted
+            && !self.items.is_empty()
+            && self.selected + 10 >= self.items.len()
+    }
+
+    pub fn append(&mut self, new_items: Vec<T>, total: u32) {
+        self.next_offset = (self.items.len() + new_items.len()) as u32;
+        self.total = total;
+        self.exhausted = self.next_offset >= total;
+        self.items.extend(new_items);
+        self.loading = false;
+    }
+}
+
+// ── Artist detail ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtistDetailFocus {
+    Tracks,
+    Albums,
+    Bio,
+}
+
+pub struct ArtistDetail {
+    pub artist: Artist,
+    pub tracks: StatefulList<Track>,
+    pub albums: StatefulList<Album>,
+    pub focus: ArtistDetailFocus,
+    pub art_bytes: Option<Vec<u8>>,
+    pub art_loading: bool,
+    pub art_cache: std::cell::RefCell<Option<(u16, u16, ArtPayload)>>,
+    pub art_placed: std::cell::RefCell<Option<(u16, u16)>>,
+    pub bio: Option<String>,
+    pub bio_loading: bool,
+    pub bio_scroll: u16,
+}
+
+// ── Playlist detail ───────────────────────────────────────────────────────────
+
+pub struct PlaylistDetail {
+    pub playlist: Playlist,
+    pub tracks: StatefulList<Track>,
+}
+
+// ── Album detail / art payload ────────────────────────────────────────────────
+
+pub enum ArtPayload {
+    HalfBlocks(Vec<ratatui::text::Line<'static>>),
+    KittySeq(String),
+}
+
+pub struct AlbumDetail {
+    pub album: Album,
+    pub tracks: StatefulList<Track>,
+    pub art_bytes: Option<Vec<u8>>,
+    pub art_loading: bool,
+    pub art_cache: std::cell::RefCell<Option<(u16, u16, ArtPayload)>>,
+    pub art_placed: std::cell::RefCell<Option<(u16, u16)>>,
+}
+
+// ── View stack ────────────────────────────────────────────────────────────────
+
+pub enum View {
+    ArtistDetail(ArtistDetail),
+    PlaylistDetail(PlaylistDetail),
+    AlbumDetail(AlbumDetail),
+}
+
+// ── Search state ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchPane {
+    Tracks,
+    Artists,
+    Playlists,
+}
+
+pub struct SearchState {
+    pub active: bool,
+    pub query: String,
+    pub tracks: Vec<Track>,
+    pub artists: Vec<Artist>,
+    pub playlists: Vec<Playlist>,
+    pub pane: SearchPane,
+    pub track_sel: usize,
+    pub artist_sel: usize,
+    pub playlist_sel: usize,
+    pub loading: bool,
+}
+
+impl Default for SearchState {
+    fn default() -> Self {
+        Self {
+            active: false,
+            query: String::new(),
+            tracks: Vec::new(),
+            artists: Vec::new(),
+            playlists: Vec::new(),
+            pane: SearchPane::Tracks,
+            track_sel: 0,
+            artist_sel: 0,
+            playlist_sel: 0,
+            loading: false,
+        }
+    }
+}
+
+impl SearchState {
+    pub fn total_results(&self) -> usize {
+        self.tracks.len() + self.artists.len() + self.playlists.len()
+    }
+
+    pub fn pane_next(&mut self) {
+        let len = self.pane_len();
+        if len == 0 { return; }
+        match self.pane {
+            SearchPane::Tracks    => self.track_sel   = (self.track_sel   + 1).min(len - 1),
+            SearchPane::Artists   => self.artist_sel  = (self.artist_sel  + 1).min(len - 1),
+            SearchPane::Playlists => self.playlist_sel = (self.playlist_sel + 1).min(len - 1),
+        }
+    }
+
+    pub fn pane_prev(&mut self) {
+        match self.pane {
+            SearchPane::Tracks    => { if self.track_sel    > 0 { self.track_sel    -= 1; } }
+            SearchPane::Artists   => { if self.artist_sel   > 0 { self.artist_sel   -= 1; } }
+            SearchPane::Playlists => { if self.playlist_sel > 0 { self.playlist_sel -= 1; } }
+        }
+    }
+
+    pub fn pane_len(&self) -> usize {
+        match self.pane {
+            SearchPane::Tracks    => self.tracks.len(),
+            SearchPane::Artists   => self.artists.len(),
+            SearchPane::Playlists => self.playlists.len(),
+        }
+    }
+
+    pub fn next_pane(&mut self) {
+        self.pane = match self.pane {
+            SearchPane::Tracks    => SearchPane::Artists,
+            SearchPane::Artists   => SearchPane::Playlists,
+            SearchPane::Playlists => SearchPane::Tracks,
+        };
+    }
+
+    pub fn prev_pane(&mut self) {
+        self.pane = match self.pane {
+            SearchPane::Tracks    => SearchPane::Playlists,
+            SearchPane::Artists   => SearchPane::Tracks,
+            SearchPane::Playlists => SearchPane::Artists,
+        };
+    }
+}
+
+// ── Sort palette ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SortField {
+    #[default]
+    Alphabetical,
+    LastAdded,
+}
+
+pub struct SortPalette {
+    pub active: bool,
+    pub selected: usize,
+}
+
+impl Default for SortPalette {
+    fn default() -> Self {
+        Self { active: false, selected: 0 }
+    }
+}
+
+impl SortPalette {
+    pub const OPTIONS: &'static [(&'static str, SortField)] = &[
+        ("Alphabetical", SortField::Alphabetical),
+        ("Last Added",   SortField::LastAdded),
+    ];
+}
+
+// ── Command palette ───────────────────────────────────────────────────────────
+
+pub struct CommandState {
+    pub active: bool,
+    pub input: String,
+    pub selected: usize,
+}
+
+impl Default for CommandState {
+    fn default() -> Self {
+        Self { active: false, input: String::new(), selected: 0 }
+    }
+}
+
+impl CommandState {
+    pub const COMMANDS: &'static [&'static str] =
+        &["favorites", "artists", "albums", "playlists", "search"];
+
+    pub fn matches(&self) -> Vec<&'static str> {
+        let q = self.input.to_lowercase();
+        Self::COMMANDS.iter()
+            .filter(|&&c| c.starts_with(q.as_str()))
+            .copied()
+            .collect()
+    }
+}
+
+// ── Now playing ───────────────────────────────────────────────────────────────
+
+pub struct NowPlaying {
+    pub track: Option<Track>,
+    /// True only after mpv fires TrackStarted; false on startup and after the queue empties.
+    pub active: bool,
+    pub paused: bool,
+    pub position: f64,
+    pub duration: f64,
+    pub queue: Vec<Track>,
+    pub queue_index: usize,
+    pub art_bytes: Option<Vec<u8>>,
+    pub art_loading: bool,
+    pub art_cache: std::cell::RefCell<Option<(u16, u16, ArtPayload)>>,
+    pub art_placed: std::cell::RefCell<Option<(u16, u16)>>,
+    pub lyrics_synced: Vec<(f64, String)>,
+    pub lyrics_plain: Vec<String>,
+    pub lyrics_loading: bool,
+    pub sample_rate: Option<u32>,
+    pub codec: Option<String>,
+    pub shuffle: bool,
+    /// UUID of the playlist this queue originated from, used to append arriving pages.
+    pub source_playlist_uuid: Option<String>,
+    /// How many tracks from that playlist have been loaded into the queue so far.
+    pub source_playlist_next_offset: u32,
+    /// Saved queue order before shuffling; restored when shuffle is toggled off.
+    pub original_queue: Vec<Track>,
+}
+
+impl Default for NowPlaying {
+    fn default() -> Self {
+        Self {
+            track: None,
+            active: false,
+            paused: true,
+            position: 0.0,
+            duration: 0.0,
+            queue: Vec::new(),
+            queue_index: 0,
+            art_bytes: None,
+            art_loading: false,
+            art_cache: std::cell::RefCell::new(None),
+            art_placed: std::cell::RefCell::new(None),
+            lyrics_synced: Vec::new(),
+            lyrics_plain: Vec::new(),
+            lyrics_loading: false,
+            sample_rate: None,
+            codec: None,
+            shuffle: false,
+            source_playlist_uuid: None,
+            source_playlist_next_offset: 0,
+            original_queue: Vec::new(),
+        }
+    }
+}
+
+impl NowPlaying {
+    pub fn progress_ratio(&self) -> f64 {
+        if self.duration > 0.0 {
+            (self.position / self.duration).clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    }
+
+    pub fn position_display(&self) -> String {
+        fmt_secs(self.position as u32)
+    }
+
+    pub fn duration_display(&self) -> String {
+        fmt_secs(self.duration as u32)
+    }
+}
+
+pub(super) fn fmt_secs(secs: u32) -> String {
+    format!("{}:{:02}", secs / 60, secs % 60)
+}
+
+// ── Status level ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatusLevel {
+    Info,
+    Error,
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── fmt_secs ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn fmt_secs_zero() {
+        assert_eq!(fmt_secs(0), "0:00");
+    }
+
+    #[test]
+    fn fmt_secs_sub_minute() {
+        assert_eq!(fmt_secs(59), "0:59");
+    }
+
+    #[test]
+    fn fmt_secs_exact_minute() {
+        assert_eq!(fmt_secs(60), "1:00");
+    }
+
+    #[test]
+    fn fmt_secs_minutes_and_seconds() {
+        assert_eq!(fmt_secs(90), "1:30");
+        assert_eq!(fmt_secs(3661), "61:01");
+    }
+
+    // ── StatefulList ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn stateful_list_append_updates_state() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append(vec![1, 2, 3], 5);
+        assert_eq!(list.items.len(), 3);
+        assert_eq!(list.next_offset, 3);
+        assert_eq!(list.total, 5);
+        assert!(!list.exhausted);
+        assert!(!list.loading);
+    }
+
+    #[test]
+    fn stateful_list_append_marks_exhausted_on_last_page() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append(vec![1, 2, 3], 3);
+        assert!(list.exhausted);
+        assert_eq!(list.next_offset, 3);
+    }
+
+    #[test]
+    fn stateful_list_append_accumulates_pages() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append(vec![1, 2], 4);
+        assert!(!list.exhausted);
+        list.append(vec![3, 4], 4);
+        assert_eq!(list.items, vec![1, 2, 3, 4]);
+        assert!(list.exhausted);
+        assert_eq!(list.next_offset, 4);
+    }
+
+    #[test]
+    fn stateful_list_next_stays_in_bounds() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append(vec![10, 20, 30], 3);
+        list.next();
+        assert_eq!(list.selected, 1);
+        list.next();
+        list.next(); // already at last item
+        assert_eq!(list.selected, 2);
+    }
+
+    #[test]
+    fn stateful_list_prev_stays_in_bounds() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append(vec![10, 20, 30], 3);
+        list.selected = 2;
+        list.prev();
+        assert_eq!(list.selected, 1);
+        list.prev();
+        list.prev(); // already at first item
+        assert_eq!(list.selected, 0);
+    }
+
+    #[test]
+    fn stateful_list_next_on_empty_is_no_op() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.next();
+        assert_eq!(list.selected, 0);
+    }
+
+    #[test]
+    fn stateful_list_should_load_more_triggers_near_end() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append((0..20u32).collect(), 100);
+        // selected + 10 >= items.len() → triggers at selected == 10
+        list.selected = 10;
+        assert!(list.should_load_more());
+        list.selected = 9;
+        assert!(!list.should_load_more());
+    }
+
+    #[test]
+    fn stateful_list_should_load_more_false_when_exhausted() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append((0..5u32).collect(), 5);
+        list.selected = 4;
+        assert!(!list.should_load_more()); // exhausted
+    }
+
+    #[test]
+    fn stateful_list_should_load_more_false_while_loading() {
+        let mut list: StatefulList<u32> = StatefulList::default();
+        list.append((0..20u32).collect(), 100);
+        list.selected = 15;
+        list.loading = true;
+        assert!(!list.should_load_more());
+    }
+
+    // ── CommandState ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn command_state_matches_prefix() {
+        let mut cmd = CommandState::default();
+        cmd.input = "fav".to_string();
+        let matches = cmd.matches();
+        assert!(matches.contains(&"favorites"));
+        assert!(!matches.contains(&"artists"));
+    }
+
+    #[test]
+    fn command_state_empty_input_matches_all() {
+        let cmd = CommandState::default();
+        let matches = cmd.matches();
+        assert_eq!(matches.len(), CommandState::COMMANDS.len());
+    }
+
+    #[test]
+    fn command_state_no_match_returns_empty() {
+        let mut cmd = CommandState::default();
+        cmd.input = "zzz".to_string();
+        assert!(cmd.matches().is_empty());
+    }
+}
