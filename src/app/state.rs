@@ -230,6 +230,7 @@ pub enum SortField {
     #[default]
     Alphabetical,
     LastAdded,
+    ByArtist,
 }
 
 pub struct SortPalette {
@@ -244,10 +245,20 @@ impl Default for SortPalette {
 }
 
 impl SortPalette {
-    pub const OPTIONS: &'static [(&'static str, SortField)] = &[
-        ("Alphabetical", SortField::Alphabetical),
-        ("Last Added",   SortField::LastAdded),
-    ];
+    pub fn get_options(current_tab: Tab) -> &'static [(&'static str, SortField)] {
+        match current_tab {
+            Tab::Artists | Tab::Playlists => &[
+                ("Alphabetical", SortField::Alphabetical),
+                ("Last Added",   SortField::LastAdded)
+            ],
+            Tab::Albums | Tab::Favorites => &[
+                ("Alphabetical", SortField::Alphabetical),
+                ("By Artist",    SortField::ByArtist),
+                ("Last Added",   SortField::LastAdded)
+            ],
+            Tab::Search => &[],
+        }
+    }
 }
 
 // ── Command palette ───────────────────────────────────────────────────────────

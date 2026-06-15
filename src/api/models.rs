@@ -77,6 +77,11 @@ impl Album {
             _              => None,
         }
     }
+    pub fn artist_name(&self) -> &str {
+        self.artist.as_ref()
+            .map(|a| a.name.as_str())
+            .unwrap_or("")
+    }
 }
 
 #[derive(Debug, Deserialize)]
