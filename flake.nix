@@ -11,25 +11,23 @@
     crane.url = "github:ipetkov/crane";
   };
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      rust-overlay,
-      crane,
-    }:
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    rust-overlay,
+    crane,
+  }:
     flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import nixpkgs { inherit system overlays; };
+      system: let
+        overlays = [(import rust-overlay)];
+        pkgs = import nixpkgs {inherit system overlays;};
 
         rustToolchain = pkgs.rust-bin.stable.latest.default;
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
-        cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+        cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
 
         commonArgs = {
           pname = cargoToml.package.name;
@@ -37,16 +35,17 @@
 
           src = craneLib.cleanCargoSource ./.;
 
-          nativeBuildInputs = [ pkgs.pkg-config ];
+          nativeBuildInputs = [pkgs.pkg-config];
 
-          buildInputs = [
-            pkgs.mpv
-            pkgs.openssl
-          ]
-          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-          ];
+          buildInputs =
+            [
+              pkgs.mpv
+              pkgs.openssl
+            ]
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+              pkgs.darwin.apple_sdk.frameworks.Security
+              pkgs.darwin.apple_sdk.frameworks.CoreFoundation
+            ];
 
           doCheck = false;
         };
@@ -65,8 +64,7 @@
             };
           }
         );
-      in
-      {
+      in {
         packages = {
           default = riptide;
           riptide = riptide;
@@ -78,7 +76,7 @@
         };
 
         devShells.default = craneLib.devShell {
-          inputsFrom = [ riptide ];
+          inputsFrom = [riptide];
           packages = [
             rustToolchain
             pkgs.rust-analyzer
@@ -86,7 +84,7 @@
           ];
         };
 
-        formatter = pkgs.nixpkgs-fmt;
+        formatter = pkgs.alejandra;
       }
     );
 }

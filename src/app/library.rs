@@ -138,6 +138,8 @@ impl App {
                         .sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
                     SortField::LastAdded => self.favorites.items
                         .sort_by(|a, b| b.added_at.cmp(&a.added_at)),
+                    SortField::ByArtist => self.favorites.items
+                        .sort_by(|a, b| a.artist_name().to_lowercase().cmp(&b.artist_name().to_lowercase())),
                 }
             }
             Tab::Artists => {
@@ -147,6 +149,7 @@ impl App {
                         .sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase())),
                     SortField::LastAdded => self.artists.items
                         .sort_by(|a, b| b.added_at.cmp(&a.added_at)),
+                    _ => {},
                 }
             }
             Tab::Albums => {
@@ -156,6 +159,8 @@ impl App {
                         .sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
                     SortField::LastAdded => self.fav_albums.items
                         .sort_by(|a, b| b.added_at.cmp(&a.added_at)),
+                    SortField::ByArtist => self.fav_albums.items
+                        .sort_by(|a, b| a.artist_name().to_lowercase().cmp(&b.artist_name().to_lowercase())),
                 }
             }
             Tab::Playlists => {
@@ -165,6 +170,7 @@ impl App {
                         .sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
                     SortField::LastAdded => self.playlists.items
                         .sort_by(|a, b| b.added_at.cmp(&a.added_at)),
+                    _ => {}
                 }
             }
             Tab::Search => {}

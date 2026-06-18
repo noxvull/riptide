@@ -214,7 +214,8 @@ fn execute_command(app: &mut App, cmd: &str) {
 }
 
 fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
-    let count = SortPalette::OPTIONS.len();
+    let options = SortPalette::get_options(app.current_tab);
+    let count = options.len();
     match key.code {
         KeyCode::Esc => {
             app.sort_palette.active = false;
@@ -230,8 +231,9 @@ fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => {
-            let field = SortPalette::OPTIONS[app.sort_palette.selected].1;
-            app.apply_sort(field);
+            if let Some((_, field)) = options.get(app.sort_palette.selected){
+                app.apply_sort(*field);
+            }
         }
         _ => {}
     }

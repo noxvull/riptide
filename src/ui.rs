@@ -351,7 +351,7 @@ fn render_command_overlay(f: &mut Frame, app: &App, area: Rect) {
 fn render_sort_overlay(f: &mut Frame, app: &App, area: Rect) {
     use crate::app::SortPalette;
 
-    let options = SortPalette::OPTIONS;
+    let options = SortPalette::get_options(app.current_tab);
     let box_w: u16 = 26;
     let box_h: u16 = 2 + options.len() as u16; // border top/bottom + one row per option
 
