@@ -39,6 +39,9 @@ pub struct App {
     pub queue_focused: bool,
     pub queue_cursor:  usize,
 
+    pub help_active: bool,
+    pub help_scroll: u16,
+
     pub tick: u64,
     /// (message, level, tick when set) — cleared automatically after ~5 s
     pub status: Option<(String, StatusLevel, u64)>,
@@ -72,6 +75,8 @@ impl App {
             now_playing:  NowPlaying::default(),
             queue_focused: false,
             queue_cursor:  0,
+            help_active: false,
+            help_scroll: 0,
             tick:   0,
             status: None,
             api_tx,

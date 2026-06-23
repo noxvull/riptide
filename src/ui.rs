@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
 
-use crate::app::{App, ArtPayload, ArtistDetailFocus, SearchPane, StatusLevel, Tab, View};
+use crate::app::{App, ArtPayload, ArtistDetailFocus, SearchPane, StatusLevel, Tab, View, KeybindGroup};
 use crate::api::models::Track;
 
 const ACCENT: Color = Color::Cyan;
@@ -37,7 +37,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     let rows = Layout::vertical([
         Constraint::Min(0),    // sidebar + content + queue
         Constraint::Length(9), // now-playing bar
-        Constraint::Length(1), // keybinds bar
+        Constraint::Length(1), // help hint
     ])
     .split(area);
 
@@ -52,7 +52,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     render_content(f, app, cols[1]);
     render_queue(f, app, cols[2]);
     render_now_playing(f, app, rows[1]);
-    render_keybinds(f, app, rows[2]);
+    render_help_hint(f, app, rows[2]);
 
     if app.command.active {
         render_command_overlay(f, app, area);
@@ -60,6 +60,10 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     if app.sort_palette.active {
         render_sort_overlay(f, app, area);
+    }
+
+    if app.help_active {
+        render_help_modal(f, app, area);
     }
 
     render_toast(f, app, area);
@@ -245,7 +249,7 @@ fn render_queue(f: &mut Frame, app: &App, area: Rect) {
             break;
         }
         let is_cur = i == current;
-        let is_cursor = focused && i == cursor;
+        let is_cursor = focused && i == cursor && !app.help_active;
         let (indicator, artist_style, title_style) = if is_cur {
             ("♪", Style::default().fg(Color::Rgb(180, 200, 255)), Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
         } else if is_cursor {
@@ -387,6 +391,95 @@ fn render_sort_overlay(f: &mut Frame, app: &App, area: Rect) {
         f.render_widget(
             Paragraph::new(format!("{prefix}{label}")).style(style),
             Rect::new(inner.x, row_y, inner.width, 1),
+        );
+    }
+}
+
+// ── Help modal ────────────────────────────────────────────────────────────────
+
+fn render_help_modal(f: &mut Frame, app: &App, area: Rect) {
+    // Fixed size modal, well clear of the now-playing bar (9 lines at bottom)
+    let box_w = 50u16.min(area.width.saturating_sub(4));
+    let box_h = 24u16.min(area.height.saturating_sub(12)); // Leave 9 for now-playing + margin
+
+    // Center horizontally and vertically within the safe area
+    let safe_bottom = area.bottom().saturating_sub(10);
+    let x = area.x + area.width.saturating_sub(box_w) / 2;
+    let y = area.y + (safe_bottom - area.y).saturating_sub(box_h) / 2;
+
+    let overlay = Rect::new(x, y, box_w, box_h);
+
+    let block = Block::default()
+        .title(Span::styled(" help ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(ACCENT));
+    let inner = block.inner(overlay);
+
+    // Clear only the inner content area
+    f.render_widget(Clear, inner);
+    f.render_widget(block, overlay);
+
+    if inner.height == 0 || inner.width < 20 {
+        return;
+    }
+
+    // Collect all keybind groups
+    let groups = vec![
+        KeybindGroup::global(),
+        KeybindGroup::navigation(),
+        KeybindGroup::queue(),
+        KeybindGroup::search(),
+        KeybindGroup::command(),
+    ];
+
+    // Build lines for rendering
+    let mut lines: Vec<Line> = Vec::new();
+    for group in groups {
+        // Group header
+        lines.push(Line::from(Span::styled(
+            group.title,
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        )));
+
+        // Keybinds
+        for keybind in group.binds {
+            let line = Line::from(vec![
+                Span::styled(
+                    format!("  {:<12}", keybind.key),
+                    Style::default().fg(ACCENT),
+                ),
+                Span::raw(keybind.action),
+            ]);
+            lines.push(line);
+        }
+
+        // Space between groups
+        lines.push(Line::from(""));
+    }
+
+    // Render with scrolling
+    let start = app.help_scroll as usize;
+    let mut y = inner.y;
+
+    for line in lines.iter().skip(start) {
+        if y >= inner.y + inner.height {
+            break;
+        }
+        f.render_widget(
+            Paragraph::new(line.clone()),
+            Rect::new(inner.x, y, inner.width, 1),
+        );
+        y += 1;
+    }
+
+    // Render scroll hint
+    if lines.len() as u16 > app.help_scroll + inner.height {
+        let hint = " ↓ more ";
+        f.render_widget(
+            Paragraph::new(hint)
+                .style(Style::default().fg(DIM))
+                .alignment(Alignment::Right),
+            Rect::new(inner.x, inner.y + inner.height.saturating_sub(1), inner.width, 1),
         );
     }
 }
@@ -887,7 +980,7 @@ fn render_track_list(
         .skip(offset)
         .take(height)
         .map(|(i, track)| {
-            let is_selected = i == selected && focused;
+            let is_selected = i == selected && focused && !app.help_active;
             let is_playing = app.now_playing.track.as_ref().map(|t| t.id == track.id).unwrap_or(false);
             let style = if is_selected {
                 Style::default().bg(HIGHLIGHT_BG).fg(Color::White).add_modifier(Modifier::BOLD)
@@ -1485,70 +1578,12 @@ fn render_lyrics(f: &mut Frame, app: &App, area: Rect) {
 
 // ── Keybinds bar ─────────────────────────────────────────────────────────────
 
-fn render_keybinds(f: &mut Frame, app: &App, area: Rect) {
-    let in_detail = !app.view_stack.is_empty();
-    let in_artist = matches!(app.view_stack.last(), Some(View::ArtistDetail(_)));
-    let bio_focused = if let Some(View::ArtistDetail(d)) = app.view_stack.last() {
-        d.focus == ArtistDetailFocus::Bio
-    } else {
-        false
-    };
-    let in_search_tab = app.current_tab == Tab::Search && !in_detail;
-    let in_albums_tab = app.current_tab == Tab::Albums && !in_detail;
+// ── Help hint ─────────────────────────────────────────────────────────────────
 
-    let hints: &[(&str, &str)] = if app.queue_focused {
-        &[("↑↓", "navigate"), ("↵", "play from"), ("f", "favorite"), ("d", "remove"), ("z", "shuffle"), ("^↑↓", "reorder"), ("←/esc", "back"), ("spc", "pause")]
-    } else if app.command.active {
-        &[("↑↓", "select"), ("tab", "complete"), ("↵", "go"), ("esc", "cancel")]
-    } else if app.sort_palette.active {
-        &[("↑↓", "select"), ("↵", "apply"), ("esc", "cancel")]
-    } else if app.search.active {
-        &[("↵", "search"), ("esc", "cancel")]
-    } else if bio_focused {
-        &[
-            ("↑↓", "scroll"), ("→", "tracks"), ("esc", "back"),
-            ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
-        ]
-    } else if in_albums_tab {
-        &[
-            ("↑↓", "navigate"), ("↵", "open"), ("f", "toggle saved"), ("→", "focus queue"),
-            ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
-        ]
-    } else if in_artist {
-        &[
-            ("↑↓", "navigate"), ("←→", "panels"), ("← on tracks", "bio"),
-            ("↵", "play/open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"),
-            ("esc", "back"), ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
-        ]
-    } else if in_detail {
-        &[
-            ("↑↓", "navigate"), ("↵", "play"), ("a", "queue"), ("f", "toggle favorite"), ("r", "radio"),
-            ("→", "focus queue"), ("esc", "back"), ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
-        ]
-    } else if in_search_tab {
-        &[
-            ("↑↓", "navigate"), ("tab/←→", "panes"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"),
-            ("spc", "pause"), ("n/p", "next/prev"), ("/", "command"), ("q", "quit"),
-        ]
-    } else {
-        &[
-            ("↑↓", "navigate"), ("↵", "open"), ("a", "queue"), ("f", "toggle fav/follow"), ("r", "radio"), ("s", "sort"), ("→", "focus queue"),
-            ("spc", "pause"), ("n/p", "next/prev"), ("z", "shuffle"), ("/", "command"), ("q", "quit"),
-        ]
-    };
-
-    let sep = Span::styled("  ·  ", Style::default().fg(Color::Rgb(60, 60, 60)));
-    let mut spans: Vec<Span> = Vec::new();
-    for (i, (key, desc)) in hints.iter().enumerate() {
-        if i > 0 {
-            spans.push(sep.clone());
-        }
-        spans.push(Span::styled(*key, Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)));
-        spans.push(Span::styled(format!(" {desc}"), Style::default().fg(DIM)));
-    }
-
+fn render_help_hint(f: &mut Frame, _app: &App, area: Rect) {
+    let hint = Span::styled("? show keybinds", Style::default().fg(DIM));
     f.render_widget(
-        Paragraph::new(Line::from(spans)).alignment(Alignment::Center),
+        Paragraph::new(Line::from(hint)).alignment(Alignment::Right),
         area,
     );
 }

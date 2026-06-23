@@ -86,6 +86,11 @@ fn leaving_artist(app: &App) -> bool {
 }
 
 fn handle_key(app: &mut App, key: KeyEvent) {
+    if app.help_active {
+        handle_help_input(app, key);
+        return;
+    }
+
     if app.queue_focused {
         handle_queue_input(app, key);
         return;
@@ -111,6 +116,10 @@ fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.should_quit = true;
+        }
+        KeyCode::Char('?') => {
+            app.help_active = true;
+            app.help_scroll = 0;
         }
         KeyCode::Char('/') => {
             app.command.active = true;
@@ -220,12 +229,12 @@ fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
         KeyCode::Esc => {
             app.sort_palette.active = false;
         }
-        KeyCode::Up | KeyCode::Char('k') => {
+        KeyCode::Up => {
             if app.sort_palette.selected > 0 {
                 app.sort_palette.selected -= 1;
             }
         }
-        KeyCode::Down | KeyCode::Char('j') => {
+        KeyCode::Down => {
             if app.sort_palette.selected + 1 < count {
                 app.sort_palette.selected += 1;
             }
@@ -234,6 +243,36 @@ fn handle_sort_palette_input(app: &mut App, key: KeyEvent) {
             if let Some((_, field)) = options.get(app.sort_palette.selected){
                 app.apply_sort(*field);
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_help_input(app: &mut App, key: KeyEvent) {
+    use crate::app::KeybindGroup;
+
+    let max_scroll = {
+        let total_lines = KeybindGroup::total_help_lines() as i16;
+        let visible_lines = 22i16; // Modal inner height (24 - 2 for borders) in render_help_modal
+        (total_lines - visible_lines).max(0) as u16
+    };
+
+    match key.code {
+        KeyCode::Esc => {
+            app.help_active = false;
+            app.help_scroll = 0;
+        }
+        KeyCode::Up => {
+            app.help_scroll = app.help_scroll.saturating_sub(1);
+        }
+        KeyCode::Down => {
+            app.help_scroll = (app.help_scroll + 1).min(max_scroll);
+        }
+        KeyCode::PageUp => {
+            app.help_scroll = app.help_scroll.saturating_sub(10);
+        }
+        KeyCode::PageDown => {
+            app.help_scroll = (app.help_scroll + 10).min(max_scroll);
         }
         _ => {}
     }
@@ -260,7 +299,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
         match view {
             View::ArtistDetail(detail) => {
                 match key.code {
-                    KeyCode::Up | KeyCode::Char('k') => {
+                    KeyCode::Up => {
                         match detail.focus {
                             ArtistDetailFocus::Tracks => detail.tracks.prev(),
                             ArtistDetailFocus::Albums => detail.albums.prev(),
@@ -270,7 +309,7 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
                         }
                         return;
                     }
-                    KeyCode::Down | KeyCode::Char('j') => {
+                    KeyCode::Down => {
                         match detail.focus {
                             ArtistDetailFocus::Tracks => detail.tracks.next(),
                             ArtistDetailFocus::Albums => detail.albums.next(),
@@ -425,14 +464,14 @@ fn handle_navigation(app: &mut App, key: KeyEvent) {
 
     // Top-level tab navigation (no active detail view)
     match key.code {
-        KeyCode::Up | KeyCode::Char('k') => match app.current_tab {
+        KeyCode::Up => match app.current_tab {
             Tab::Artists => app.artists.prev(),
             Tab::Albums => app.fav_albums.prev(),
             Tab::Playlists => app.playlists.prev(),
             Tab::Favorites => app.favorites.prev(),
             Tab::Search => app.search.pane_prev(),
         },
-        KeyCode::Down | KeyCode::Char('j') => match app.current_tab {
+        KeyCode::Down => match app.current_tab {
             Tab::Artists => app.artists.next(),
             Tab::Albums => app.fav_albums.next(),
             Tab::Playlists => app.playlists.next(),
@@ -611,12 +650,12 @@ fn handle_queue_input(app: &mut App, key: KeyEvent) {
         KeyCode::Down if key.modifiers.contains(KeyModifiers::CONTROL) => {
             app.move_queue_track_down();
         }
-        KeyCode::Up | KeyCode::Char('k') => {
+        KeyCode::Up => {
             if app.queue_cursor > 0 {
                 app.queue_cursor -= 1;
             }
         }
-        KeyCode::Down | KeyCode::Char('j') => {
+        KeyCode::Down => {
             let len = app.now_playing.queue.len();
             if len > 0 && app.queue_cursor + 1 < len {
                 app.queue_cursor += 1;
